@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sales Docket POS</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2300ffff'/%3E%3Cpath d='M10 44 L24 20 L32 32 L40 20 L54 44 Z' fill='%2300ff00'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <main class="shell">
     <section class="topbar">
-      <div class="brand-lockup">
-        <div class="eyebrow">Sales Docket</div>
-      </div>
+      <div class="brand-lockup"></div>
       <div class="topbar-actions">
         <div class="overflow-wrap">
           <button class="secondary compact" id="overflowToggleBtn" type="button">Menu</button>
@@ -23,7 +24,7 @@
           </div>
         </div>
         <button class="account-chip" id="accountChip" type="button" title="Operator account">
-        <span class="account-glyph" id="accountGlyph">?</span>
+          <span class="account-glyph" id="accountGlyph">?</span>
         </button>
       </div>
     </section>
@@ -141,7 +142,7 @@
             <button class="primary" id="saveHeaderBtn" type="button">Save Header</button>
           </div>
 
-          <table>
+          <table class="line-table">
             <thead>
               <tr>
                 <th>Line</th>
@@ -189,6 +190,17 @@
       </section>
     </section>
   </main>
+
+  <div class="modal-backdrop hidden" id="priceModeModal">
+    <div class="modal-card">
+      <div class="modal-title">Export Price Entry</div>
+      <div class="modal-copy" id="priceModeModalText">Choose whether the entered unit price is already VEP or still VIP inclusive.</div>
+      <div class="actions">
+        <button class="secondary" id="priceModeExclusiveBtn" type="button">VEP / Net</button>
+        <button class="primary" id="priceModeInclusiveBtn" type="button">VIP / Inclusive</button>
+      </div>
+    </div>
+  </div>
 
   <script src="./config.js"></script>
   <script src="./api.js"></script>

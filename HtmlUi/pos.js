@@ -4,6 +4,7 @@
     lists: { drafts: [], booked: [], quotations: [] },
     customers: []
   };
+  let priceModeResolver = null;
 
   const $ = function(id) {
     const el = document.getElementById(id);
@@ -13,9 +14,16 @@
 
   function setStatus(text) { $('status').textContent = text; }
   function money(v) { return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function amount(v) { return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function pct(v) { return (Number(v || 0) * 100).toFixed(2) + '%'; }
   function esc(v) { return String(v || '').replace(/[&<>"']/g, function(ch) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' })[ch]; }); }
   function activeId() { return state.docket && state.docket.docketId ? state.docket.docketId : ''; }
+  function getDomesticRate() {
+    if (state.docket && state.docket.header) {
+      return Number(state.docket.header.standardDomesticVatRate || state.docket.header.vatRateDefault || 0);
+    }
+    return 0.15;
+  }
   function imgSrc(value) {
     const text = String(value || '').trim();
     const match = text.match(/[-\w]{25,}/);
@@ -35,6 +43,43 @@
       return await fn();
     } finally {
       setButtonBusy(button, false);
+    }
+  }
+  function upsertDraftSummary(docket) {
+    if (!docket) return;
+    const summary = {
+      docketId: docket.docketId,
+      originalSheetName: docket.meta && docket.meta.originalSheetName ? docket.meta.originalSheetName : docket.docketId,
+      customerName: docket.header && docket.header.customerName ? docket.header.customerName : '',
+      grandTotalGross: docket.totals && docket.totals.grandTotalGross ? docket.totals.grandTotalGross : 0
+    };
+    const index = state.lists.drafts.findIndex(function(item) { return item.docketId === docket.docketId; });
+    if (docket.status === 'draft') {
+      if (index === -1) state.lists.drafts.unshift(summary);
+      else state.lists.drafts[index] = summary;
+      renderDrafts(docket.docketId);
+    } else if (index !== -1) {
+      state.lists.drafts.splice(index, 1);
+      renderDrafts('');
+    }
+  }
+  function syncCurrentDocket(docket) {
+    renderDocket(docket);
+    bindLineEvents();
+    upsertDraftSummary(docket);
+  }
+  function chooseExportPriceMode() {
+    $('priceModeModal').classList.remove('hidden');
+    return new Promise(function(resolve) {
+      priceModeResolver = resolve;
+    });
+  }
+  function closePriceMode(choice) {
+    $('priceModeModal').classList.add('hidden');
+    if (priceModeResolver) {
+      const resolve = priceModeResolver;
+      priceModeResolver = null;
+      resolve(choice);
     }
   }
 
@@ -123,16 +168,17 @@
         if (state.docket.header.pricingMode === 'export' && !line.isTaxExempt) {
           const entered = Number(unitPriceInput || 0);
           if (isFinite(entered) && entered > 0) {
-            const inclusive = window.confirm('Export mode price entry: press OK if the entered value includes VAT/GST and should be deducted. Press Cancel if the entered price is already exclusive/net.');
-            if (inclusive) {
-              const rate = Number(state.docket.header.standardDomesticVatRate || 0);
+            $('priceModeModalText').textContent = 'For export mode, decide whether ' + amount(entered) + ' is VIP inclusive or already VEP / net.';
+            const mode = await chooseExportPriceMode();
+            if (mode === 'inclusive') {
+              const rate = getDomesticRate();
               if (rate > 0) {
                 unitPriceInput = (Math.round((entered / (1 + rate)) * 100) / 100).toFixed(2);
                 tr.querySelector('.js-line-price').value = unitPriceInput;
-                setStatus('Export mode: inclusive price converted to net.');
+                setStatus('Export mode: VIP converted to VEP.');
               }
             } else {
-              setStatus('Export mode: entered price kept as exclusive/net.');
+              setStatus('Export mode: entered price kept as VEP.');
             }
           }
         }
@@ -143,9 +189,7 @@
           unitPriceInput: unitPriceInput
         };
         const docket = await window.SalesDocketApi.updateDocketLine(activeId(), lineId, patch);
-        renderDocket(docket);
-        bindLineEvents();
-        await refreshLists(activeId());
+        syncCurrentDocket(docket);
       };
 
       ['.js-line-detail', '.js-line-description', '.js-line-qty', '.js-line-price'].forEach(function(sel) {
@@ -163,9 +207,7 @@
       tr.querySelector('.js-line-delete').addEventListener('click', async function() {
         try {
           const docket = await window.SalesDocketApi.deleteDocketLine(activeId(), lineId);
-          renderDocket(docket);
-          bindLineEvents();
-          await refreshLists(activeId());
+          syncCurrentDocket(docket);
           setStatus('Line deleted.');
         } catch (error) {
           setStatus('Delete failed: ' + error.message);
@@ -189,7 +231,8 @@
           '</td>',
           '<td class="result-meta-cell">',
           '<div class="muted">Stock ' + esc(product.stockLevel) + '</div>',
-          '<div class="muted">Net ' + Number(product.unitPriceNet || 0).toFixed(2) + '</div>',
+          '<div class="muted">VEP ' + amount(product.unitPriceNet || 0) + '</div>',
+          '<div class="muted">VIP ' + amount(Number(product.unitPriceNet || 0) * (1 + getDomesticRate())) + '</div>',
           '</td>',
           '</tr>'
         ].join('');
@@ -205,9 +248,7 @@
           row.classList.add('result-row-busy');
           setStatus('Adding ' + row.getAttribute('data-product') + '...');
           const docket = await window.SalesDocketApi.addDocketLine(activeId(), { productNr: row.getAttribute('data-product'), quantity: 1 });
-          renderDocket(docket);
-          bindLineEvents();
-          await refreshLists(activeId());
+          syncCurrentDocket(docket);
           setStatus('Added ' + row.getAttribute('data-product') + '.');
         } catch (error) {
           setStatus('Add failed: ' + error.message);
@@ -232,8 +273,7 @@
     if (!$('docketSelect').value) return;
     try {
       const docket = await window.SalesDocketApi.loadDocket($('docketSelect').value);
-      renderDocket(docket);
-      bindLineEvents();
+      syncCurrentDocket(docket);
       setStatus('Loaded ' + (docket.meta.originalSheetName || docket.docketId) + '.');
     } catch (error) {
       setStatus('Load failed: ' + error.message);
@@ -251,9 +291,7 @@
       pricingMode: $('pricingMode').value
     };
     const docket = await window.SalesDocketApi.saveDocketHeader(activeId(), header);
-    renderDocket(docket);
-    bindLineEvents();
-    await refreshLists(activeId());
+    syncCurrentDocket(docket);
   }
 
   async function bootstrap() {
@@ -274,8 +312,7 @@
       await runButtonAction(button, 'Creating...', async function() {
         const docket = await window.SalesDocketApi.createDocket({ companyCode: $('companySelect').value, pricingMode: $('pricingMode').value });
         await refreshLists(docket.docketId);
-        renderDocket(docket);
-        bindLineEvents();
+        syncCurrentDocket(docket);
         setStatus('Created ' + (docket.meta.originalSheetName || docket.docketId) + '.');
       });
     } catch (error) { setStatus('Create failed: ' + error.message); }
@@ -329,8 +366,7 @@
     const button = this;
     try { await runButtonAction(button, 'Booking...', async function() {
       const docket = await window.SalesDocketApi.bookDocket(activeId());
-      renderDocket(docket);
-      bindLineEvents();
+      syncCurrentDocket(docket);
       await refreshLists('');
       renderOverflow('booked');
       setStatus('Sales booked.');
@@ -340,8 +376,7 @@
     const button = this;
     try { await runButtonAction(button, 'Saving...', async function() {
       const docket = await window.SalesDocketApi.saveQuotation(activeId());
-      renderDocket(docket);
-      bindLineEvents();
+      syncCurrentDocket(docket);
       await refreshLists('');
       renderOverflow('quotations');
       setStatus('Quotation saved.');
@@ -357,6 +392,11 @@
       const data = await window.SalesDocketApi.ping();
       setStatus('Server reachable at ' + new Intl.DateTimeFormat('en-FJ', { timeZone: FIJI_TIME_ZONE, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date(data.at)));
     }); } catch (error) { setStatus('Ping failed: ' + error.message); }
+  });
+  $('priceModeExclusiveBtn').addEventListener('click', function() { closePriceMode('exclusive'); });
+  $('priceModeInclusiveBtn').addEventListener('click', function() { closePriceMode('inclusive'); });
+  $('priceModeModal').addEventListener('click', function(event) {
+    if (event.target === $('priceModeModal')) closePriceMode('exclusive');
   });
   let timer = null;
   $('searchInput').addEventListener('input', function() {
