@@ -16,6 +16,12 @@
   function pct(v) { return (Number(v || 0) * 100).toFixed(2) + '%'; }
   function esc(v) { return String(v || '').replace(/[&<>"']/g, function(ch) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' })[ch]; }); }
   function activeId() { return state.docket && state.docket.docketId ? state.docket.docketId : ''; }
+  function imgSrc(value) {
+    const text = String(value || '').trim();
+    const match = text.match(/[-\w]{25,}/);
+    if (match) return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w160';
+    return text;
+  }
 
   function renderAccount(user) {
     const email = user && user.email ? user.email : '';
@@ -73,7 +79,7 @@
       return [
         '<tr data-line-id="' + esc(line.lineId) + '">',
         '<td>' + esc(line.sortOrder) + '</td>',
-        '<td><img class="line-image" src="' + esc(line.imageUrl || '') + '" alt=""></td>',
+        '<td><img class="line-image" src="' + esc(imgSrc(line.imageUrl || '')) + '" alt=""></td>',
         '<td>' + esc(line.productNr) + '</td>',
         '<td><input class="table-input js-line-detail" value="' + esc(line.fullDetail) + '"></td>',
         '<td><input class="table-input js-line-description" value="' + esc(line.description) + '"></td>',
@@ -135,26 +141,34 @@
   }
 
   function renderSearch(products) {
-    $('results').innerHTML = products.length ? products.map(function(product) {
-      return [
-        '<div class="result">',
-        '<img class="search-image" src="' + esc(product.imageSrc || '') + '" alt="">',
-        '<div class="result-copy">',
-        '<div class="pn">' + esc(product.productNr) + '</div>',
-        '<div>' + esc(product.description || '') + '</div>',
-        '<div class="muted">' + esc(product.variant || '') + '</div>',
-        '<div class="muted">Stock ' + esc(product.stockLevel) + '</div>',
-        '</div>',
-        '<div class="result-actions">',
-        '<input class="js-add-qty" type="number" min="1" step="1" value="1">',
-        '<button class="primary compact js-add-product" data-product="' + esc(product.productNr) + '" type="button">Add</button>',
-        '<div class="muted">Net ' + Number(product.unitPriceNet || 0).toFixed(2) + '</div>',
-        '</div>',
-        '</div>'
-      ].join('');
-    }).join('') : '<div class="empty">No matching products found.</div>';
+    $('results').innerHTML = products.length ? [
+      '<table class="results-table">',
+      '<tbody>',
+      products.map(function(product) {
+        return [
+          '<tr class="result-row">',
+          '<td class="result-img-cell"><img class="search-image" src="' + esc(imgSrc(product.imageSrc || product.imageUrl || '')) + '" alt=""></td>',
+          '<td class="result-desc-cell">',
+          '<div class="pn">' + esc(product.productNr) + '</div>',
+          '<div>' + esc(product.description || '') + '</div>',
+          '<div class="muted">' + esc(product.variant || '') + '</div>',
+          '</td>',
+          '<td class="result-meta-cell">',
+          '<div class="muted">Stock ' + esc(product.stockLevel) + '</div>',
+          '<div class="muted">Net ' + Number(product.unitPriceNet || 0).toFixed(2) + '</div>',
+          '</td>',
+          '<td class="result-action-cell">',
+          '<input class="table-input search-qty js-add-qty" type="number" min="1" step="1" value="1">',
+          '<button class="primary compact js-add-product" data-product="' + esc(product.productNr) + '" type="button">Add</button>',
+          '</td>',
+          '</tr>'
+        ].join('');
+      }).join(''),
+      '</tbody>',
+      '</table>'
+    ].join('') : '<div class="empty">No matching products found.</div>';
 
-    Array.prototype.forEach.call(document.querySelectorAll('.js-add-product'), function(button) {
+    Array.prototype.forEach.call(document.querySelectorAll('#results .js-add-product'), function(button) {
       button.addEventListener('click', async function() {
         if (!activeId()) return setStatus('Create or select a draft docket first.');
         const qty = button.parentElement.querySelector('.js-add-qty').value;
