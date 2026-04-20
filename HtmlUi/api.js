@@ -80,6 +80,47 @@
     bootstrap: function() {
       return requestGet('bootstrap');
     },
+    ensureStorage: function() {
+      return requestPost('ensureStorage');
+    },
+    listDockets: function(status) {
+      return requestGet('listDockets', { status: status || '' }).then(function(data) {
+        return data.dockets || [];
+      });
+    },
+    loadDocket: function(docketId) {
+      return requestGet('loadDocket', { docketId: docketId });
+    },
+    createDocket: function(payload) {
+      return requestPost('createDocket', {
+        payloadJson: JSON.stringify(payload || {})
+      });
+    },
+    saveDocketHeader: function(docketId, header) {
+      return requestPost('saveDocketHeader', {
+        docketId: docketId,
+        headerJson: JSON.stringify(header || {})
+      });
+    },
+    addDocketLine: function(docketId, line) {
+      return requestPost('addDocketLine', {
+        docketId: docketId,
+        lineJson: JSON.stringify(line || {})
+      });
+    },
+    updateDocketLine: function(docketId, lineId, patch) {
+      return requestPost('updateDocketLine', {
+        docketId: docketId,
+        lineId: lineId,
+        patchJson: JSON.stringify(patch || {})
+      });
+    },
+    deleteDocketLine: function(docketId, lineId) {
+      return requestPost('deleteDocketLine', {
+        docketId: docketId,
+        lineId: lineId
+      });
+    },
     getContext: function(sheetName) {
       return requestGet('context', { sheetName: sheetName });
     },

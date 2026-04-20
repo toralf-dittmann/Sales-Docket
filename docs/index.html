@@ -4,42 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sales Docket POS</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2320dde3'/%3E%3Cpath d='M10 44 L24 20 L32 32 L40 20 L54 44 Z' fill='%2312ff00'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2300ffff'/%3E%3Cpath d='M10 44 L24 20 L32 32 L40 20 L54 44 Z' fill='%2300ff00'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <main class="shell">
-    <section class="hero">
-      <div class="eyebrow">Sales Docket</div>
-      <h1>POS Frontend</h1>
-      <p class="sub">
-        Static frontend for the Sales Docket point-of-sale workflow, backed by Apps Script and Google Sheets.
-      </p>
+    <section class="topbar">
+      <div class="brand-lockup">
+        <div class="eyebrow">Sales Docket</div>
+        <h1>Aquam Insula POS</h1>
+        <p class="sub">Unlimited docket lines with sheet-backed persistence and Fiji-time workflow.</p>
+      </div>
+      <button class="account-chip" id="accountChip" type="button" title="Operator account">
+        <span class="account-glyph" id="accountGlyph">?</span>
+      </button>
     </section>
 
     <section class="grid">
       <aside class="panel">
         <div class="panel-inner stack">
-          <div class="section-title">Session</div>
+          <div class="section-title">Sales Dockets</div>
 
           <label>
-            API base URL
-            <input id="apiBaseUrl" placeholder="Apps Script web app URL">
-          </label>
-
-          <label>
-            Signed-in user
-            <input id="email" disabled>
-          </label>
-
-          <label>
-            Sales docket
-            <select id="sheetName"></select>
+            Select docket
+            <select id="docketSelect"></select>
           </label>
 
           <div class="actions">
-            <button class="primary" id="saveConfigBtn" type="button">Save API URL</button>
-            <button class="secondary" id="loadBtn" type="button">Load Docket</button>
+            <button class="primary" id="createDocketBtn" type="button">New Docket</button>
             <button class="secondary" id="pingBtn" type="button">Ping</button>
           </div>
 
@@ -51,7 +43,7 @@
           </label>
 
           <div class="search-results" id="results"></div>
-          <div class="status" id="status">Configure the Apps Script API URL to begin.</div>
+          <div class="status" id="status">Connecting to the HtmlUi backend.</div>
         </div>
       </aside>
 
@@ -60,7 +52,7 @@
           <div class="header-grid">
             <label>
               Title
-              <input id="title" disabled>
+              <input id="title">
             </label>
             <label>
               Docket number
@@ -80,7 +72,14 @@
             </label>
             <label>
               Payment method
-              <input id="paymentMethod">
+              <input id="paymentTerms">
+            </label>
+            <label>
+              Pricing mode
+              <select id="pricingMode">
+                <option value="domestic">Domestic</option>
+                <option value="export">Export</option>
+              </select>
             </label>
           </div>
 
@@ -91,12 +90,14 @@
           <table>
             <thead>
               <tr>
-                <th>Row</th>
-                <th>Product</th>
+                <th>Line</th>
+                <th>Product #</th>
+                <th>Detail</th>
                 <th>Description</th>
                 <th>Qty</th>
-                <th>Unit Price</th>
-                <th>Total</th>
+                <th>Unit Input</th>
+                <th>Total Gross</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="lineItems"></tbody>
@@ -113,7 +114,7 @@
             </div>
             <div class="stat">
               <div class="stat-label">VAT Rate</div>
-              <div class="stat-value" id="vatRate">-</div>
+              <div class="stat-value" id="vatRateDefault">-</div>
             </div>
             <div class="stat">
               <div class="stat-label">VAT Amount</div>
