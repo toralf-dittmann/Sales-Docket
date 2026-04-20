@@ -3,13 +3,21 @@
   let activeDocketId = '';
   let activeDocket = null;
 
-  const statusEl = document.getElementById('status');
-  const resultsEl = document.getElementById('results');
-  const lineItemsEl = document.getElementById('lineItems');
-  const docketSelectEl = document.getElementById('docketSelect');
-  const searchEl = document.getElementById('searchInput');
-  const accountChipEl = document.getElementById('accountChip');
-  const accountGlyphEl = document.getElementById('accountGlyph');
+  function getRequiredElement(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+      throw new Error('Required page element not found: ' + id);
+    }
+    return element;
+  }
+
+  const statusEl = getRequiredElement('status');
+  const resultsEl = getRequiredElement('results');
+  const lineItemsEl = getRequiredElement('lineItems');
+  const docketSelectEl = getRequiredElement('docketSelect');
+  const searchEl = getRequiredElement('searchInput');
+  const accountChipEl = getRequiredElement('accountChip');
+  const accountGlyphEl = getRequiredElement('accountGlyph');
 
   function setStatus(message) {
     statusEl.textContent = message;
@@ -387,11 +395,9 @@
     }).format(date);
   }
 
-  docketSelectEl.addEventListener('change', loadSelectedDocket);
+  getRequiredElement('createDocketBtn').addEventListener('click', createDocket);
 
-  document.getElementById('createDocketBtn').addEventListener('click', createDocket);
-
-  document.getElementById('pingBtn').addEventListener('click', async function() {
+  getRequiredElement('pingBtn').addEventListener('click', async function() {
     try {
       setStatus('Pinging server...');
       const data = await window.SalesDocketApi.ping();
@@ -401,7 +407,7 @@
     }
   });
 
-  document.getElementById('saveHeaderBtn').addEventListener('click', async function() {
+  getRequiredElement('saveHeaderBtn').addEventListener('click', async function() {
     if (!activeDocketId) {
       setStatus('Create or select a docket first.');
       return;
@@ -424,6 +430,8 @@
       setStatus('Save failed: ' + error.message);
     }
   });
+
+  docketSelectEl.addEventListener('change', loadSelectedDocket);
 
   let searchTimer = null;
   searchEl.addEventListener('input', function() {
