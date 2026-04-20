@@ -1,3 +1,3 @@
 window.SALES_DOCKET_CONFIG = {
-  apiBaseUrl: 'https://script.google.com/macros/s/AKfycbzax0g9kQZMDq9uvRvI6miPozUfPwUsQucctlBWvocaDOaTl86hyUrlX8b7lSlJcYlYeQ/exec'
+  apiBaseUrl: 'https://script.google.com/macros/s/AKfycbxB2eECvbDJjCjiYvM293tuMJHGDu0jjIc3WUGvccmqv7UJCsO205uyMqqhF8nYDg5-7g/exec'
 };

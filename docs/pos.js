@@ -1,10 +1,13 @@
 (function() {
   const state = {
     docket: null,
+    currentDraftId: '',
+    registerTab: 'sales',
     lists: { drafts: [], booked: [], quotations: [] },
     customers: []
   };
   let priceModeResolver = null;
+  let searchTimer = null;
 
   const $ = function(id) {
     const el = document.getElementById(id);
@@ -12,18 +15,39 @@
     return el;
   };
 
-  function setStatus(text) { $('status').textContent = text; }
-  function money(v) { return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function amount(v) { return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function pct(v) { return (Number(v || 0) * 100).toFixed(2) + '%'; }
-  function esc(v) { return String(v || '').replace(/[&<>"']/g, function(ch) { return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' })[ch]; }); }
-  function activeId() { return state.docket && state.docket.docketId ? state.docket.docketId : ''; }
+  function setStatus(text) {
+    $('status').textContent = text;
+  }
+
+  function money(v) {
+    return '$' + Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function amount(v) {
+    return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function pct(v) {
+    return (Number(v || 0) * 100).toFixed(2) + '%';
+  }
+
+  function esc(v) {
+    return String(v || '').replace(/[&<>"']/g, function(ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function activeId() {
+    return state.docket && state.docket.docketId ? state.docket.docketId : '';
+  }
+
   function getDomesticRate() {
     if (state.docket && state.docket.header) {
       return Number(state.docket.header.standardDomesticVatRate || state.docket.header.vatRateDefault || 0);
     }
     return 0.15;
   }
+
   function imgSrc(value) {
     const text = String(value || '').trim();
     const match = text.match(/[-\w]{25,}/);
@@ -31,12 +55,14 @@
     if (text) return text;
     return "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='46'%3E%3Crect width='100%25' height='100%25' rx='8' fill='%23f0f4f4'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='9' fill='%2390a4a7'%3ENo image%3C/text%3E%3C/svg%3E";
   }
+
   function setButtonBusy(button, busy, busyText, idleText) {
     if (!button) return;
     if (!button.dataset.idleText) button.dataset.idleText = idleText || button.textContent;
     button.disabled = !!busy;
     button.textContent = busy ? (busyText || button.dataset.idleText) : button.dataset.idleText;
   }
+
   async function runButtonAction(button, busyText, fn) {
     try {
       setButtonBusy(button, true, busyText);
@@ -45,35 +71,14 @@
       setButtonBusy(button, false);
     }
   }
-  function upsertDraftSummary(docket) {
-    if (!docket) return;
-    const summary = {
-      docketId: docket.docketId,
-      originalSheetName: docket.meta && docket.meta.originalSheetName ? docket.meta.originalSheetName : docket.docketId,
-      customerName: docket.header && docket.header.customerName ? docket.header.customerName : '',
-      grandTotalGross: docket.totals && docket.totals.grandTotalGross ? docket.totals.grandTotalGross : 0
-    };
-    const index = state.lists.drafts.findIndex(function(item) { return item.docketId === docket.docketId; });
-    if (docket.status === 'draft') {
-      if (index === -1) state.lists.drafts.unshift(summary);
-      else state.lists.drafts[index] = summary;
-      renderDrafts(docket.docketId);
-    } else if (index !== -1) {
-      state.lists.drafts.splice(index, 1);
-      renderDrafts('');
-    }
-  }
-  function syncCurrentDocket(docket) {
-    renderDocket(docket);
-    bindLineEvents();
-    upsertDraftSummary(docket);
-  }
+
   function chooseExportPriceMode() {
     $('priceModeModal').classList.remove('hidden');
     return new Promise(function(resolve) {
       priceModeResolver = resolve;
     });
   }
+
   function closePriceMode(choice) {
     $('priceModeModal').classList.add('hidden');
     if (priceModeResolver) {
@@ -103,30 +108,92 @@
   }
 
   function renderDrafts(preferredId) {
-    $('docketSelect').innerHTML = state.lists.drafts.length
-      ? state.lists.drafts.map(function(item) {
+    const drafts = state.lists.drafts || [];
+    $('docketSelect').innerHTML = drafts.length
+      ? drafts.map(function(item) {
           return '<option value="' + esc(item.docketId) + '">' + esc(item.originalSheetName || item.docketId) + ' - ' + esc(item.customerName || 'No customer') + '</option>';
         }).join('')
       : '<option value="">No active draft dockets</option>';
-    if (preferredId) $('docketSelect').value = preferredId;
+
+    if (preferredId && drafts.some(function(item) { return item.docketId === preferredId; })) {
+      $('docketSelect').value = preferredId;
+      state.currentDraftId = preferredId;
+    } else if ($('docketSelect').value) {
+      state.currentDraftId = $('docketSelect').value;
+    } else {
+      state.currentDraftId = '';
+    }
   }
 
-  function renderOverflow(kind) {
-    const map = { drafts: 'Draft Dockets', booked: 'Booked Register', quotations: 'Quotations' };
-    $('overflowTitle').textContent = map[kind];
-    $('overflowList').innerHTML = (state.lists[kind] || []).length
-      ? state.lists[kind].map(function(item) {
-          return '<div class="overflow-entry"><strong>' + esc(item.originalSheetName || item.docketId) + '</strong><span>' + esc(item.customerName || 'No customer') + '</span><span>' + money(item.grandTotalGross) + '</span></div>';
-        }).join('')
-      : '<div class="empty">No entries yet.</div>';
-    $('overflowPanel').classList.remove('hidden');
-    $('overflowMenu').classList.add('hidden');
+  function renderRegister() {
+    const tab = state.registerTab === 'quotations' ? 'quotations' : 'booked';
+    const rows = tab === 'booked' ? state.lists.booked : state.lists.quotations;
+    $('salesTabBtn').classList.toggle('is-active', tab === 'booked');
+    $('quotationsTabBtn').classList.toggle('is-active', tab === 'quotations');
+    $('registerNumberLabel').textContent = tab === 'booked' ? 'Sales #' : 'Quotation #';
+
+    $('registerRows').innerHTML = rows.length ? rows.map(function(item) {
+      const number = tab === 'booked' ? (item.documentNumber || '-') : (item.quotationNumber || '-');
+      return [
+        '<tr data-docket-id="' + esc(item.docketId) + '" data-kind="' + esc(tab) + '">',
+        '<td class="number-cell">' + esc(number) + '</td>',
+        '<td>' + esc(item.originalSheetName || item.docketId) + '</td>',
+        '<td>' + esc(item.customerName || '') + '</td>',
+        '<td>' + esc(item.updatedAt || item.createdAt || '') + '</td>',
+        '<td class="amount-cell">' + money(item.grandTotalGross) + '</td>',
+        '</tr>'
+      ].join('');
+    }).join('') : '<tr><td colspan="5" class="empty">No ' + (tab === 'booked' ? 'sales' : 'quotations') + ' yet.</td></tr>';
+
+    Array.prototype.forEach.call(document.querySelectorAll('#registerRows tr[data-docket-id]'), function(row) {
+      row.addEventListener('click', async function() {
+        const docketId = row.getAttribute('data-docket-id');
+        const kind = row.getAttribute('data-kind');
+        if (kind === 'quotations') {
+          if (!state.currentDraftId) {
+            setStatus('Select or create a draft docket first so the quotation has somewhere to load.');
+            return;
+          }
+          try {
+            setStatus('Restoring quotation...');
+            const docket = await window.SalesDocketApi.restoreQuotation(state.currentDraftId, docketId);
+            syncCurrentDocket(docket);
+            await refreshLists(state.currentDraftId);
+            setStatus('Quotation restored into ' + (docket.meta.originalSheetName || docket.docketId) + '.');
+          } catch (error) {
+            setStatus('Quotation restore failed: ' + error.message);
+          }
+          return;
+        }
+
+        try {
+          setStatus('Loading booked sale...');
+          const docket = await window.SalesDocketApi.loadDocket(docketId);
+          renderDocket(docket);
+          bindLineEvents();
+          setStatus('Showing booked docket read only.');
+        } catch (error) {
+          setStatus('Booked docket load failed: ' + error.message);
+        }
+      });
+    });
+  }
+
+  function setDocketInteractivity(docket) {
+    const readOnly = !docket || docket.readOnly;
+    ['title', 'customerEmail', 'orderNumber', 'paymentTerms', 'pricingMode'].forEach(function(id) {
+      $(id).disabled = readOnly;
+    });
+    $('saveHeaderBtn').disabled = readOnly;
+    $('saveQuotationBtn').disabled = readOnly;
+    $('bookDocketBtn').disabled = readOnly;
   }
 
   function renderDocket(docket) {
     state.docket = docket;
     $('title').value = docket.header.title || '';
     $('docketNumber').value = docket.header.documentNumber || docket.docketId || '';
+    $('quotationNumber').textContent = docket.header.quotationNumber || '-';
     $('customerName').value = docket.header.customerName || '';
     $('customerEmail').value = docket.header.customerEmail || '';
     $('orderNumber').value = docket.header.orderNumber || '';
@@ -134,32 +201,61 @@
     $('pricingMode').value = docket.header.pricingMode || 'domestic';
     $('originalSheetName').textContent = 'Original sheet: ' + (docket.meta.originalSheetName || '-');
     $('docketStatusText').textContent = docket.status || 'draft';
+    $('vatRateDefaultInline').textContent = pct(docket.header.displayVatRate || docket.header.vatRateDefault || 0);
     renderCustomers(docket.header.customerName || '');
+    setDocketInteractivity(docket);
 
     $('lineItems').innerHTML = docket.lines.length ? docket.lines.map(function(line) {
+      const imageCell = '<img class="line-image" src="' + esc(imgSrc(line.imageUrl || '')) + '" alt="" onerror="this.onerror=null;this.src=\'' + imgSrc('') + '\'">';
+      const detailCell = docket.readOnly
+        ? '<span class="cell-value">' + esc(line.fullDetail) + '</span>'
+        : '<input class="table-input js-line-detail" value="' + esc(line.fullDetail) + '">';
+      const descCell = docket.readOnly
+        ? '<span class="cell-value">' + esc(line.description) + '</span>'
+        : '<input class="table-input js-line-description" value="' + esc(line.description) + '">';
+      const qtyCell = docket.readOnly
+        ? '<span class="cell-value">' + esc(line.qty) + '</span>'
+        : '<input class="table-input js-line-qty" type="number" min="1" step="1" value="' + esc(line.qty) + '">';
+      const priceCell = docket.readOnly
+        ? '<span class="cell-value">' + amount(line.unitPriceInput) + '</span>'
+        : '<input class="table-input js-line-price" type="number" min="0" step="0.01" value="' + esc(line.unitPriceInput) + '">';
+      const actionCell = docket.readOnly
+        ? '<span class="cell-value">Read only</span>'
+        : '<button class="danger compact js-line-delete" type="button">Delete</button>';
+
       return [
-        '<tr data-line-id="' + esc(line.lineId) + '">',
+        '<tr class="' + (docket.readOnly ? 'read-only-row' : '') + '" data-line-id="' + esc(line.lineId) + '">',
         '<td>' + esc(line.sortOrder) + '</td>',
-        '<td><img class="line-image" src="' + esc(imgSrc(line.imageUrl || '')) + '" alt="" onerror="this.onerror=null;this.src=\'' + imgSrc('') + '\'"></td>',
+        '<td>' + imageCell + '</td>',
         '<td>' + esc(line.productNr) + '</td>',
-        '<td><input class="table-input js-line-detail" value="' + esc(line.fullDetail) + '"></td>',
-        '<td><input class="table-input js-line-description" value="' + esc(line.description) + '"></td>',
-        '<td><input class="table-input js-line-qty" type="number" min="1" step="1" value="' + esc(line.qty) + '"></td>',
-        '<td><input class="table-input js-line-price" type="number" min="0" step="0.01" value="' + esc(line.unitPriceInput) + '"></td>',
+        '<td>' + detailCell + '</td>',
+        '<td>' + descCell + '</td>',
+        '<td>' + qtyCell + '</td>',
+        '<td>' + priceCell + '</td>',
+        '<td>' + amount(line.unitPriceNet) + '</td>',
+        '<td>' + amount(line.unitPriceGross) + '</td>',
         '<td>' + money(line.lineTotalGross) + '</td>',
-        '<td class="line-actions"><button class="danger compact js-line-delete" type="button">Delete</button></td>',
+        '<td class="line-actions">' + actionCell + '</td>',
         '</tr>'
       ].join('');
-    }).join('') : '<tr><td colspan="9" class="empty">No line items entered yet.</td></tr>';
+    }).join('') : '<tr><td colspan="11" class="empty">No line items entered yet.</td></tr>';
 
     $('subtotal').textContent = money(docket.totals.subtotalNet);
     $('shipping').textContent = money(docket.totals.shippingNet);
-    $('vatRateDefault').textContent = pct(docket.header.vatRateDefault);
+    $('vatRateDefault').textContent = pct(docket.header.displayVatRate || docket.header.vatRateDefault || 0);
     $('vatAmount').textContent = money(docket.totals.vatAmount);
     $('grandTotal').textContent = money(docket.totals.grandTotalGross);
   }
 
+  function syncCurrentDocket(docket) {
+    if (docket && docket.status === 'draft') state.currentDraftId = docket.docketId;
+    renderDocket(docket);
+    bindLineEvents();
+  }
+
   function bindLineEvents() {
+    if (!state.docket || state.docket.readOnly) return;
+
     Array.prototype.forEach.call(document.querySelectorAll('#lineItems tr[data-line-id]'), function(tr) {
       const lineId = tr.getAttribute('data-line-id');
       const save = async function() {
@@ -182,6 +278,7 @@
             }
           }
         }
+
         const patch = {
           fullDetail: tr.querySelector('.js-line-detail').value,
           description: tr.querySelector('.js-line-description').value,
@@ -206,6 +303,7 @@
 
       tr.querySelector('.js-line-delete').addEventListener('click', async function() {
         try {
+          setStatus('Deleting line...');
           const docket = await window.SalesDocketApi.deleteDocketLine(activeId(), lineId);
           syncCurrentDocket(docket);
           setStatus('Line deleted.');
@@ -243,11 +341,14 @@
 
     Array.prototype.forEach.call(document.querySelectorAll('#results .result-row'), function(row) {
       row.addEventListener('click', async function() {
-        if (!activeId()) return setStatus('Create or select a draft docket first.');
+        if (!state.currentDraftId) {
+          setStatus('Create or select a draft docket first.');
+          return;
+        }
         try {
           row.classList.add('result-row-busy');
           setStatus('Adding ' + row.getAttribute('data-product') + '...');
-          const docket = await window.SalesDocketApi.addDocketLine(activeId(), { productNr: row.getAttribute('data-product'), quantity: 1 });
+          const docket = await window.SalesDocketApi.addDocketLine(state.currentDraftId, { productNr: row.getAttribute('data-product'), quantity: 1 });
           syncCurrentDocket(docket);
           setStatus('Added ' + row.getAttribute('data-product') + '.');
         } catch (error) {
@@ -266,13 +367,16 @@
       window.SalesDocketApi.listDockets('quotation')
     ]);
     state.lists = { drafts: data[0], booked: data[1], quotations: data[2] };
-    renderDrafts(preferredId);
+    renderDrafts(preferredId || state.currentDraftId);
+    renderRegister();
   }
 
   async function loadSelectedDocket() {
-    if (!$('docketSelect').value) return;
+    const docketId = $('docketSelect').value;
+    if (!docketId) return;
+    state.currentDraftId = docketId;
     try {
-      const docket = await window.SalesDocketApi.loadDocket($('docketSelect').value);
+      const docket = await window.SalesDocketApi.loadDocket(docketId);
       syncCurrentDocket(docket);
       setStatus('Loaded ' + (docket.meta.originalSheetName || docket.docketId) + '.');
     } catch (error) {
@@ -281,7 +385,10 @@
   }
 
   async function saveHeader() {
-    if (!activeId()) return setStatus('Create or select a draft docket first.');
+    if (!state.currentDraftId) {
+      setStatus('Create or select a draft docket first.');
+      return null;
+    }
     const header = {
       title: $('title').value,
       customerName: $('customerName').value,
@@ -290,8 +397,9 @@
       paymentTerms: $('paymentTerms').value,
       pricingMode: $('pricingMode').value
     };
-    const docket = await window.SalesDocketApi.saveDocketHeader(activeId(), header);
+    const docket = await window.SalesDocketApi.saveDocketHeader(state.currentDraftId, header);
     syncCurrentDocket(docket);
+    return docket;
   }
 
   async function bootstrap() {
@@ -310,24 +418,48 @@
     const button = this;
     try {
       await runButtonAction(button, 'Creating...', async function() {
-        const docket = await window.SalesDocketApi.createDocket({ companyCode: $('companySelect').value, pricingMode: $('pricingMode').value });
+        const docket = await window.SalesDocketApi.createDocket({
+          companyCode: $('companySelect').value,
+          pricingMode: $('pricingMode').value
+        });
+        state.currentDraftId = docket.docketId;
         await refreshLists(docket.docketId);
         syncCurrentDocket(docket);
         setStatus('Created ' + (docket.meta.originalSheetName || docket.docketId) + '.');
       });
-    } catch (error) { setStatus('Create failed: ' + error.message); }
+    } catch (error) {
+      setStatus('Create failed: ' + error.message);
+    }
   });
 
   $('saveHeaderBtn').addEventListener('click', async function() {
     const button = this;
-    try { await runButtonAction(button, 'Saving...', async function() { await saveHeader(); setStatus('Header saved.'); }); } catch (error) { setStatus('Save failed: ' + error.message); }
+    try {
+      await runButtonAction(button, 'Saving...', async function() {
+        await saveHeader();
+        setStatus('Header saved.');
+      });
+    } catch (error) {
+      setStatus('Save failed: ' + error.message);
+    }
   });
+
   $('pricingMode').addEventListener('change', async function() {
-    try { await saveHeader(); setStatus('Pricing mode updated.'); } catch (error) { setStatus('Mode switch failed: ' + error.message); }
+    try {
+      const docket = await saveHeader();
+      if (docket) setStatus('Pricing mode updated and VAT recalculated.');
+    } catch (error) {
+      setStatus('Mode switch failed: ' + error.message);
+    }
   });
+
   $('docketSelect').addEventListener('change', loadSelectedDocket);
+
   $('customerSelect').addEventListener('change', async function() {
-    if ($('customerSelect').value === '<new customer>') return $('newCustomerForm').classList.remove('hidden');
+    if ($('customerSelect').value === '<new customer>') {
+      $('newCustomerForm').classList.remove('hidden');
+      return;
+    }
     $('newCustomerForm').classList.add('hidden');
     try {
       const customer = await window.SalesDocketApi.getCustomerByName($('customerSelect').value);
@@ -339,7 +471,11 @@
       setStatus('Customer load failed: ' + error.message);
     }
   });
-  $('newCustomerBtn').addEventListener('click', function() { $('newCustomerForm').classList.toggle('hidden'); });
+
+  $('newCustomerBtn').addEventListener('click', function() {
+    $('newCustomerForm').classList.toggle('hidden');
+  });
+
   $('saveCustomerBtn').addEventListener('click', async function() {
     const button = this;
     try {
@@ -362,57 +498,98 @@
       setStatus('Customer save failed: ' + error.message);
     }
   });
+
   $('bookDocketBtn').addEventListener('click', async function() {
     const button = this;
-    try { await runButtonAction(button, 'Booking...', async function() {
-      const docket = await window.SalesDocketApi.bookDocket(activeId());
-      syncCurrentDocket(docket);
-      await refreshLists('');
-      renderOverflow('booked');
-      setStatus('Sales booked.');
-    }); } catch (error) { setStatus('Book failed: ' + error.message); }
+    try {
+      await runButtonAction(button, 'Booking...', async function() {
+        const result = await window.SalesDocketApi.bookDocket(activeId());
+        syncCurrentDocket(result.activeDocket);
+        await refreshLists(result.activeDocket.docketId);
+        state.registerTab = 'sales';
+        renderRegister();
+        setStatus('Sales booked as ' + (result.registerDocket.header.documentNumber || 'new docket') + '.');
+      });
+    } catch (error) {
+      setStatus('Book failed: ' + error.message);
+    }
   });
+
   $('saveQuotationBtn').addEventListener('click', async function() {
     const button = this;
-    try { await runButtonAction(button, 'Saving...', async function() {
-      const docket = await window.SalesDocketApi.saveQuotation(activeId());
-      syncCurrentDocket(docket);
-      await refreshLists('');
-      renderOverflow('quotations');
-      setStatus('Quotation saved.');
-    }); } catch (error) { setStatus('Quotation failed: ' + error.message); }
+    try {
+      await runButtonAction(button, 'Saving...', async function() {
+        const result = await window.SalesDocketApi.saveQuotation(activeId());
+        syncCurrentDocket(result.activeDocket);
+        await refreshLists(result.activeDocket.docketId);
+        state.registerTab = 'quotations';
+        renderRegister();
+        setStatus('Quotation saved as ' + (result.registerDocket.header.quotationNumber || 'new quotation') + '.');
+      });
+    } catch (error) {
+      setStatus('Quotation failed: ' + error.message);
+    }
   });
-  $('overflowToggleBtn').addEventListener('click', function() { $('overflowMenu').classList.toggle('hidden'); });
-  $('showDraftsBtn').addEventListener('click', function() { renderOverflow('drafts'); });
-  $('showBookedBtn').addEventListener('click', function() { renderOverflow('booked'); });
-  $('showQuotationsBtn').addEventListener('click', function() { renderOverflow('quotations'); });
+
+  $('salesTabBtn').addEventListener('click', function() {
+    state.registerTab = 'sales';
+    renderRegister();
+  });
+
+  $('quotationsTabBtn').addEventListener('click', function() {
+    state.registerTab = 'quotations';
+    renderRegister();
+  });
+
   $('pingBtn').addEventListener('click', async function() {
     const button = this;
-    try { await runButtonAction(button, 'Pinging...', async function() {
-      const data = await window.SalesDocketApi.ping();
-      setStatus('Server reachable at ' + new Intl.DateTimeFormat('en-FJ', { timeZone: FIJI_TIME_ZONE, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date(data.at)));
-    }); } catch (error) { setStatus('Ping failed: ' + error.message); }
+    try {
+      await runButtonAction(button, 'Pinging...', async function() {
+        const data = await window.SalesDocketApi.ping();
+        setStatus('Server reachable at ' + new Intl.DateTimeFormat('en-FJ', {
+          timeZone: FIJI_TIME_ZONE,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(new Date(data.at)));
+      });
+    } catch (error) {
+      setStatus('Ping failed: ' + error.message);
+    }
   });
-  $('priceModeExclusiveBtn').addEventListener('click', function() { closePriceMode('exclusive'); });
-  $('priceModeInclusiveBtn').addEventListener('click', function() { closePriceMode('inclusive'); });
+
+  $('priceModeExclusiveBtn').addEventListener('click', function() {
+    closePriceMode('exclusive');
+  });
+
+  $('priceModeInclusiveBtn').addEventListener('click', function() {
+    closePriceMode('inclusive');
+  });
+
   $('priceModeModal').addEventListener('click', function(event) {
     if (event.target === $('priceModeModal')) closePriceMode('exclusive');
   });
-  let timer = null;
+
   $('searchInput').addEventListener('input', function() {
-    clearTimeout(timer);
-    timer = setTimeout(async function() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async function() {
       const query = $('searchInput').value.trim();
-      if (!query) return $('results').innerHTML = '<div class="empty">Type to search products.</div>';
+      if (!query) {
+        $('results').innerHTML = '<div class="empty">Type to search products.</div>';
+        return;
+      }
       try {
         const data = await window.SalesDocketApi.searchProducts(query);
         renderSearch(data.products || []);
-        setStatus('Search ready.');
+        setStatus((data.products || []).length + ' search results ready.');
       } catch (error) {
         setStatus('Search failed: ' + error.message);
       }
     }, 120);
   });
 
-  bootstrap().catch(function(error) { setStatus('Bootstrap failed: ' + error.message); });
+  bootstrap().catch(function(error) {
+    setStatus('Bootstrap failed: ' + error.message);
+  });
 })();

@@ -145,6 +145,12 @@
     saveQuotation: function(docketId) {
       return requestPost('saveQuotation', { docketId: docketId });
     },
+    restoreQuotation: function(targetDocketId, quotationDocketId) {
+      return requestPost('restoreQuotation', {
+        targetDocketId: targetDocketId,
+        quotationDocketId: quotationDocketId
+      });
+    },
     getContext: function(sheetName) {
       return requestGet('context', { sheetName: sheetName });
     },
