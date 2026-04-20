@@ -259,17 +259,6 @@ th {
   min-height: 20px;
 }
 
-.status-note {
-  min-height: 0;
-  color: var(--ink);
-  line-height: 1.45;
-}
-
-.status-note a {
-  color: var(--lifestyle);
-  font-weight: 700;
-}
-
 .empty {
   color: var(--muted);
   padding: 16px 2px;

@@ -11,6 +11,23 @@
     window.localStorage.setItem('salesDocket.apiBaseUrl', String(url || '').trim());
   }
 
+  async function parseJsonResponse(response) {
+    const text = await response.text();
+    let payload = {};
+
+    try {
+      payload = JSON.parse(text || '{}');
+    } catch (error) {
+      throw new Error('The server returned an invalid response.');
+    }
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || response.statusText || 'Request failed.');
+    }
+
+    return payload.data;
+  }
+
   async function requestGet(action, params) {
     const config = getConfig();
     if (!config.apiBaseUrl) {
@@ -27,36 +44,31 @@
       }
     });
 
-    const response = await fetch(url.toString(), {
-      method: 'GET'
-    });
-
-    const payload = await response.json();
-    if (!payload.ok) {
-      throw new Error(payload.error || 'Request failed.');
-    }
-    return payload.data;
+    const response = await fetch(url.toString(), { method: 'GET' });
+    return parseJsonResponse(response);
   }
 
-  async function requestPost(body) {
+  async function requestPost(action, params) {
     const config = getConfig();
     if (!config.apiBaseUrl) {
       throw new Error('API base URL is not configured.');
     }
 
-    const response = await fetch(config.apiBaseUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body || {})
+    const form = new URLSearchParams();
+    form.set('action', action);
+
+    Object.entries(params || {}).forEach(function(entry) {
+      if (entry[1] !== undefined && entry[1] !== null) {
+        form.set(entry[0], entry[1]);
+      }
     });
 
-    const payload = await response.json();
-    if (!payload.ok) {
-      throw new Error(payload.error || 'Request failed.');
-    }
-    return payload.data;
+    const response = await fetch(config.apiBaseUrl, {
+      method: 'POST',
+      body: form
+    });
+
+    return parseJsonResponse(response);
   }
 
   window.SalesDocketApi = {
@@ -75,19 +87,20 @@
       return requestGet('searchProducts', { query: query });
     },
     saveHeader: function(sheetName, header) {
-      return requestPost({
-        action: 'saveHeader',
+      return requestPost('saveHeader', {
         sheetName: sheetName,
-        header: header
+        headerJson: JSON.stringify(header || {})
       });
     },
     insertProductLine: function(sheetName, productNr, quantity) {
-      return requestPost({
-        action: 'insertProductLine',
+      return requestPost('insertProductLine', {
         sheetName: sheetName,
         productNr: productNr,
         quantity: quantity
       });
+    },
+    bootstrapEnvironment: function() {
+      return requestPost('bootstrapHtmlUiTestEnvironment');
     }
   };
 })();
