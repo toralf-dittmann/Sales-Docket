@@ -9,6 +9,8 @@
   const sheetEl = document.getElementById('sheetName');
   const searchEl = document.getElementById('searchInput');
   const apiBaseUrlEl = document.getElementById('apiBaseUrl');
+  const hostingNoticeEl = document.getElementById('hostingNotice');
+  const liveAppLinkEl = document.getElementById('liveAppLink');
 
   function setStatus(message) {
     statusEl.textContent = message;
@@ -16,6 +18,26 @@
 
   function setStatusWithTimestamp(message) {
     statusEl.textContent = message + ' (' + formatFijiDateTime(new Date()) + ')';
+  }
+
+  function isGitHubPagesPreview() {
+    return /github\.io$/i.test(window.location.hostname);
+  }
+
+  function syncLiveAppLink() {
+    const apiBaseUrl = window.SalesDocketApi.getConfig().apiBaseUrl;
+    if (!hostingNoticeEl || !liveAppLinkEl) {
+      return;
+    }
+
+    if (apiBaseUrl) {
+      liveAppLinkEl.href = apiBaseUrl;
+      hostingNoticeEl.hidden = !isGitHubPagesPreview();
+      return;
+    }
+
+    liveAppLinkEl.removeAttribute('href');
+    hostingNoticeEl.hidden = true;
   }
 
   function fillInput(id, value) {
@@ -174,8 +196,14 @@
   async function bootstrap() {
     try {
       apiBaseUrlEl.value = window.SalesDocketApi.getConfig().apiBaseUrl;
+      syncLiveAppLink();
       if (!apiBaseUrlEl.value) {
         setStatus('Configure the Apps Script API URL to begin. All displayed times use Fiji time.');
+        return;
+      }
+
+      if (isGitHubPagesPreview()) {
+        setStatus('GitHub Pages preview is static only. Use the live Apps Script web app link above.');
         return;
       }
 
@@ -237,6 +265,7 @@
 
   document.getElementById('saveConfigBtn').addEventListener('click', function() {
     window.SalesDocketApi.setApiBaseUrl(apiBaseUrlEl.value);
+    syncLiveAppLink();
     setStatusWithTimestamp('API URL saved locally');
     bootstrap();
   });

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sales Docket POS</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2320dde3'/%3E%3Cpath d='M10 44 L24 20 L32 32 L40 20 L54 44 Z' fill='%2312ff00'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -40,6 +41,12 @@
             <button class="primary" id="saveConfigBtn" type="button">Save API URL</button>
             <button class="secondary" id="loadBtn" type="button">Load Docket</button>
             <button class="secondary" id="pingBtn" type="button">Ping</button>
+          </div>
+
+          <div class="status status-note" id="hostingNotice" hidden>
+            This GitHub Pages preview cannot call Apps Script directly because of browser CORS rules.
+            Open the live app instead:
+            <a id="liveAppLink" target="_blank" rel="noreferrer">Open Apps Script web app</a>
           </div>
 
           <div class="section-title">Product Search</div>
