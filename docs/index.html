@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sales Docket POS</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">Sales Docket</div>
+      <h1>POS Frontend</h1>
+      <p class="sub">
+        Static frontend for the Sales Docket point-of-sale workflow, backed by Apps Script and Google Sheets.
+      </p>
+    </section>
+
+    <section class="grid">
+      <aside class="panel">
+        <div class="panel-inner stack">
+          <div class="section-title">Session</div>
+
+          <label>
+            API base URL
+            <input id="apiBaseUrl" placeholder="Apps Script web app URL">
+          </label>
+
+          <label>
+            Signed-in user
+            <input id="email" disabled>
+          </label>
+
+          <label>
+            Sales docket
+            <select id="sheetName"></select>
+          </label>
+
+          <div class="actions">
+            <button class="primary" id="saveConfigBtn" type="button">Save API URL</button>
+            <button class="secondary" id="loadBtn" type="button">Load Docket</button>
+            <button class="secondary" id="pingBtn" type="button">Ping</button>
+          </div>
+
+          <div class="section-title">Product Search</div>
+
+          <label>
+            Search by product number or description
+            <input id="searchInput" placeholder="Example: Y0055 or teak">
+          </label>
+
+          <div class="search-results" id="results"></div>
+          <div class="status" id="status">Configure the Apps Script API URL to begin.</div>
+        </div>
+      </aside>
+
+      <section class="panel">
+        <div class="panel-inner">
+          <div class="header-grid">
+            <label>
+              Title
+              <input id="title" disabled>
+            </label>
+            <label>
+              Docket number
+              <input id="docketNumber" disabled>
+            </label>
+            <label>
+              Customer
+              <input id="customerName">
+            </label>
+            <label>
+              Customer email
+              <input id="customerEmail">
+            </label>
+            <label>
+              Order number
+              <input id="orderNumber">
+            </label>
+            <label>
+              Payment method
+              <input id="paymentMethod">
+            </label>
+          </div>
+
+          <div class="actions section-space">
+            <button class="primary" id="saveHeaderBtn" type="button">Save Header</button>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Row</th>
+                <th>Product</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="lineItems"></tbody>
+          </table>
+
+          <div class="meta-grid">
+            <div class="stat">
+              <div class="stat-label">Subtotal</div>
+              <div class="stat-value" id="subtotal">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Shipping</div>
+              <div class="stat-value" id="shipping">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">VAT Rate</div>
+              <div class="stat-value" id="vatRate">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">VAT Amount</div>
+              <div class="stat-value" id="vatAmount">-</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">Grand Total</div>
+              <div class="stat-value" id="grandTotal">-</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="./config.js"></script>
+  <script src="./api.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
