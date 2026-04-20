@@ -38,13 +38,13 @@ body {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  align-items: start;
-  margin-bottom: 20px;
+  align-items: center;
+  margin-bottom: 14px;
 }
 
 .brand-lockup {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 
 .eyebrow {
@@ -53,18 +53,6 @@ body {
   letter-spacing: 0.2em;
   font-size: 12px;
   font-weight: 700;
-}
-
-h1 {
-  margin: 0;
-  font: 400 clamp(34px, 5vw, 58px)/0.95 "Georgia", "Times New Roman", serif;
-}
-
-.sub {
-  max-width: 760px;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1.5;
 }
 
 .account-chip {
@@ -304,7 +292,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .search-results {
   display: block;
-  max-height: 420px;
+  max-height: 520px;
   overflow: auto;
 }
 
@@ -317,42 +305,50 @@ button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
 .result-row {
   border-bottom: 1px solid var(--line);
+  cursor: pointer;
 }
 
 .result-row:hover {
   background: rgba(0, 255, 255, 0.05);
 }
 
+.result-row-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
 .result-img-cell {
-  width: 74px;
-  padding: 8px;
+  width: 60px;
+  padding: 5px 6px;
   vertical-align: top;
 }
 
 .result-desc-cell {
-  padding: 8px;
+  padding: 5px 6px;
   vertical-align: top;
+  font-size: 12px;
+  line-height: 1.25;
 }
 
 .result-meta-cell {
-  width: 100px;
-  padding: 8px;
+  width: 88px;
+  padding: 5px 6px;
   vertical-align: top;
   text-align: right;
 }
 
 .result-action-cell {
-  width: 122px;
-  padding: 8px;
+  width: 18px;
+  padding: 0;
   vertical-align: top;
 }
 
 .search-image,
 .line-image {
-  width: 60px;
-  height: 60px;
+  width: 46px;
+  height: 46px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #f3f6f6;
   border: 1px solid var(--line);
 }
@@ -361,15 +357,12 @@ button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
   font-weight: 700;
   letter-spacing: 0.03em;
   color: var(--aquam-deep);
+  font-size: 12px;
 }
 
 .muted {
   color: var(--muted);
-  font-size: 13px;
-}
-
-.search-qty {
-  margin-bottom: 8px;
+  font-size: 11px;
 }
 
 table {
@@ -407,7 +400,11 @@ th {
 .status {
   margin-top: 12px;
   color: var(--muted);
-  min-height: 20px;
+  min-height: 22px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.12);
 }
 
 .customer-form {

@@ -22,6 +22,20 @@
     if (match) return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w160';
     return text;
   }
+  function setButtonBusy(button, busy, busyText, idleText) {
+    if (!button) return;
+    if (!button.dataset.idleText) button.dataset.idleText = idleText || button.textContent;
+    button.disabled = !!busy;
+    button.textContent = busy ? (busyText || button.dataset.idleText) : button.dataset.idleText;
+  }
+  async function runButtonAction(button, busyText, fn) {
+    try {
+      setButtonBusy(button, true, busyText);
+      return await fn();
+    } finally {
+      setButtonBusy(button, false);
+    }
+  }
 
   function renderAccount(user) {
     const email = user && user.email ? user.email : '';
@@ -102,11 +116,29 @@
     Array.prototype.forEach.call(document.querySelectorAll('#lineItems tr[data-line-id]'), function(tr) {
       const lineId = tr.getAttribute('data-line-id');
       const save = async function() {
+        const line = state.docket.lines.find(function(item) { return item.lineId === lineId; }) || {};
+        let unitPriceInput = tr.querySelector('.js-line-price').value;
+        if (state.docket.header.pricingMode === 'export' && !line.isTaxExempt) {
+          const entered = Number(unitPriceInput || 0);
+          if (isFinite(entered) && entered > 0) {
+            const inclusive = window.confirm('Export mode price entry: press OK if the entered value includes VAT/GST and should be deducted. Press Cancel if the entered price is already exclusive/net.');
+            if (inclusive) {
+              const rate = Number(state.docket.header.standardDomesticVatRate || 0);
+              if (rate > 0) {
+                unitPriceInput = (Math.round((entered / (1 + rate)) * 100) / 100).toFixed(2);
+                tr.querySelector('.js-line-price').value = unitPriceInput;
+                setStatus('Export mode: inclusive price converted to net.');
+              }
+            } else {
+              setStatus('Export mode: entered price kept as exclusive/net.');
+            }
+          }
+        }
         const patch = {
           fullDetail: tr.querySelector('.js-line-detail').value,
           description: tr.querySelector('.js-line-description').value,
           quantity: tr.querySelector('.js-line-qty').value,
-          unitPriceInput: tr.querySelector('.js-line-price').value
+          unitPriceInput: unitPriceInput
         };
         const docket = await window.SalesDocketApi.updateDocketLine(activeId(), lineId, patch);
         renderDocket(docket);
@@ -146,7 +178,7 @@
       '<tbody>',
       products.map(function(product) {
         return [
-          '<tr class="result-row">',
+          '<tr class="result-row" data-product="' + esc(product.productNr) + '">',
           '<td class="result-img-cell"><img class="search-image" src="' + esc(imgSrc(product.imageSrc || product.imageUrl || '')) + '" alt=""></td>',
           '<td class="result-desc-cell">',
           '<div class="pn">' + esc(product.productNr) + '</div>',
@@ -157,10 +189,6 @@
           '<div class="muted">Stock ' + esc(product.stockLevel) + '</div>',
           '<div class="muted">Net ' + Number(product.unitPriceNet || 0).toFixed(2) + '</div>',
           '</td>',
-          '<td class="result-action-cell">',
-          '<input class="table-input search-qty js-add-qty" type="number" min="1" step="1" value="1">',
-          '<button class="primary compact js-add-product" data-product="' + esc(product.productNr) + '" type="button">Add</button>',
-          '</td>',
           '</tr>'
         ].join('');
       }).join(''),
@@ -168,18 +196,21 @@
       '</table>'
     ].join('') : '<div class="empty">No matching products found.</div>';
 
-    Array.prototype.forEach.call(document.querySelectorAll('#results .js-add-product'), function(button) {
-      button.addEventListener('click', async function() {
+    Array.prototype.forEach.call(document.querySelectorAll('#results .result-row'), function(row) {
+      row.addEventListener('click', async function() {
         if (!activeId()) return setStatus('Create or select a draft docket first.');
-        const qty = button.parentElement.querySelector('.js-add-qty').value;
         try {
-          const docket = await window.SalesDocketApi.addDocketLine(activeId(), { productNr: button.dataset.product, quantity: qty });
+          row.classList.add('result-row-busy');
+          setStatus('Adding ' + row.getAttribute('data-product') + '...');
+          const docket = await window.SalesDocketApi.addDocketLine(activeId(), { productNr: row.getAttribute('data-product'), quantity: 1 });
           renderDocket(docket);
           bindLineEvents();
           await refreshLists(activeId());
-          setStatus('Added ' + button.dataset.product + '.');
+          setStatus('Added ' + row.getAttribute('data-product') + '.');
         } catch (error) {
           setStatus('Add failed: ' + error.message);
+        } finally {
+          row.classList.remove('result-row-busy');
         }
       });
     });
@@ -236,19 +267,21 @@
   }
 
   $('createDocketBtn').addEventListener('click', async function() {
+    const button = this;
     try {
-      const docket = await window.SalesDocketApi.createDocket({ companyCode: $('companySelect').value, pricingMode: $('pricingMode').value });
-      await refreshLists(docket.docketId);
-      renderDocket(docket);
-      bindLineEvents();
-      setStatus('Created ' + (docket.meta.originalSheetName || docket.docketId) + '.');
-    } catch (error) {
-      setStatus('Create failed: ' + error.message);
-    }
+      await runButtonAction(button, 'Creating...', async function() {
+        const docket = await window.SalesDocketApi.createDocket({ companyCode: $('companySelect').value, pricingMode: $('pricingMode').value });
+        await refreshLists(docket.docketId);
+        renderDocket(docket);
+        bindLineEvents();
+        setStatus('Created ' + (docket.meta.originalSheetName || docket.docketId) + '.');
+      });
+    } catch (error) { setStatus('Create failed: ' + error.message); }
   });
 
   $('saveHeaderBtn').addEventListener('click', async function() {
-    try { await saveHeader(); setStatus('Header saved.'); } catch (error) { setStatus('Save failed: ' + error.message); }
+    const button = this;
+    try { await runButtonAction(button, 'Saving...', async function() { await saveHeader(); setStatus('Header saved.'); }); } catch (error) { setStatus('Save failed: ' + error.message); }
   });
   $('pricingMode').addEventListener('change', async function() {
     try { await saveHeader(); setStatus('Pricing mode updated.'); } catch (error) { setStatus('Mode switch failed: ' + error.message); }
@@ -269,59 +302,59 @@
   });
   $('newCustomerBtn').addEventListener('click', function() { $('newCustomerForm').classList.toggle('hidden'); });
   $('saveCustomerBtn').addEventListener('click', async function() {
+    const button = this;
     try {
-      const customer = await window.SalesDocketApi.createCustomer({
-        name: $('newCustomerName').value,
-        email: $('newCustomerEmail').value,
-        phone: $('newCustomerPhone').value,
-        address: $('newCustomerAddress').value
+      await runButtonAction(button, 'Saving...', async function() {
+        const customer = await window.SalesDocketApi.createCustomer({
+          name: $('newCustomerName').value,
+          email: $('newCustomerEmail').value,
+          phone: $('newCustomerPhone').value,
+          address: $('newCustomerAddress').value
+        });
+        state.customers = await window.SalesDocketApi.listCustomers();
+        renderCustomers(customer.name);
+        $('customerName').value = customer.name || '';
+        $('customerEmail').value = customer.email || '';
+        $('newCustomerForm').classList.add('hidden');
+        await saveHeader();
+        setStatus('Customer saved.');
       });
-      state.customers = await window.SalesDocketApi.listCustomers();
-      renderCustomers(customer.name);
-      $('customerName').value = customer.name || '';
-      $('customerEmail').value = customer.email || '';
-      $('newCustomerForm').classList.add('hidden');
-      await saveHeader();
-      setStatus('Customer saved.');
     } catch (error) {
       setStatus('Customer save failed: ' + error.message);
     }
   });
   $('bookDocketBtn').addEventListener('click', async function() {
-    try {
+    const button = this;
+    try { await runButtonAction(button, 'Booking...', async function() {
       const docket = await window.SalesDocketApi.bookDocket(activeId());
       renderDocket(docket);
       bindLineEvents();
       await refreshLists('');
       renderOverflow('booked');
       setStatus('Sales booked.');
-    } catch (error) {
-      setStatus('Book failed: ' + error.message);
-    }
+    }); } catch (error) { setStatus('Book failed: ' + error.message); }
   });
   $('saveQuotationBtn').addEventListener('click', async function() {
-    try {
+    const button = this;
+    try { await runButtonAction(button, 'Saving...', async function() {
       const docket = await window.SalesDocketApi.saveQuotation(activeId());
       renderDocket(docket);
       bindLineEvents();
       await refreshLists('');
       renderOverflow('quotations');
       setStatus('Quotation saved.');
-    } catch (error) {
-      setStatus('Quotation failed: ' + error.message);
-    }
+    }); } catch (error) { setStatus('Quotation failed: ' + error.message); }
   });
   $('overflowToggleBtn').addEventListener('click', function() { $('overflowMenu').classList.toggle('hidden'); });
   $('showDraftsBtn').addEventListener('click', function() { renderOverflow('drafts'); });
   $('showBookedBtn').addEventListener('click', function() { renderOverflow('booked'); });
   $('showQuotationsBtn').addEventListener('click', function() { renderOverflow('quotations'); });
   $('pingBtn').addEventListener('click', async function() {
-    try {
+    const button = this;
+    try { await runButtonAction(button, 'Pinging...', async function() {
       const data = await window.SalesDocketApi.ping();
       setStatus('Server reachable at ' + new Intl.DateTimeFormat('en-FJ', { timeZone: FIJI_TIME_ZONE, hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false }).format(new Date(data.at)));
-    } catch (error) {
-      setStatus('Ping failed: ' + error.message);
-    }
+    }); } catch (error) { setStatus('Ping failed: ' + error.message); }
   });
   let timer = null;
   $('searchInput').addEventListener('input', function() {
