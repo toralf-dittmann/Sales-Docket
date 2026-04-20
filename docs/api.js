@@ -80,6 +80,19 @@
     bootstrap: function() {
       return requestGet('bootstrap');
     },
+    listOriginalSheets: function() {
+      return requestGet('listOriginalSheets').then(function(data) {
+        return data.originalSheets || [];
+      });
+    },
+    listCustomers: function() {
+      return requestGet('listCustomers').then(function(data) {
+        return data.customers || [];
+      });
+    },
+    getCustomerByName: function(name) {
+      return requestGet('customerByName', { name: name });
+    },
     ensureStorage: function() {
       return requestPost('ensureStorage');
     },
@@ -94,6 +107,11 @@
     createDocket: function(payload) {
       return requestPost('createDocket', {
         payloadJson: JSON.stringify(payload || {})
+      });
+    },
+    createCustomer: function(customer) {
+      return requestPost('createCustomer', {
+        customerJson: JSON.stringify(customer || {})
       });
     },
     saveDocketHeader: function(docketId, header) {
@@ -120,6 +138,12 @@
         docketId: docketId,
         lineId: lineId
       });
+    },
+    bookDocket: function(docketId) {
+      return requestPost('bookDocket', { docketId: docketId });
+    },
+    saveQuotation: function(docketId) {
+      return requestPost('saveQuotation', { docketId: docketId });
     },
     getContext: function(sheetName) {
       return requestGet('context', { sheetName: sheetName });

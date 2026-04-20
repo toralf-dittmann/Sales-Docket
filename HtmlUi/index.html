@@ -13,26 +13,74 @@
       <div class="brand-lockup">
         <div class="eyebrow">Sales Docket</div>
         <h1>Aquam Insula POS</h1>
-        <p class="sub">Unlimited docket lines with sheet-backed persistence and Fiji-time workflow.</p>
+        <p class="sub">Company-based docket workflow with draft dockets, quotations, booked sales, and image-backed product search.</p>
       </div>
-      <button class="account-chip" id="accountChip" type="button" title="Operator account">
+      <div class="topbar-actions">
+        <div class="overflow-wrap">
+          <button class="secondary compact" id="overflowToggleBtn" type="button">Menu</button>
+          <div class="overflow-menu hidden" id="overflowMenu">
+            <button class="menu-item" id="showDraftsBtn" type="button">Draft Dockets</button>
+            <button class="menu-item" id="showBookedBtn" type="button">Booked Register</button>
+            <button class="menu-item" id="showQuotationsBtn" type="button">Quotations</button>
+          </div>
+        </div>
+        <button class="account-chip" id="accountChip" type="button" title="Operator account">
         <span class="account-glyph" id="accountGlyph">?</span>
-      </button>
+        </button>
+      </div>
     </section>
 
     <section class="grid">
       <aside class="panel">
         <div class="panel-inner stack">
-          <div class="section-title">Sales Dockets</div>
+          <div class="section-title">Docket Control</div>
 
           <label>
-            Select docket
+            Company
+            <select id="companySelect"></select>
+          </label>
+
+          <label>
+            Existing draft dockets
             <select id="docketSelect"></select>
           </label>
 
           <div class="actions">
             <button class="primary" id="createDocketBtn" type="button">New Docket</button>
             <button class="secondary" id="pingBtn" type="button">Ping</button>
+          </div>
+
+          <div class="section-title">Customer</div>
+
+          <label>
+            Customer
+            <select id="customerSelect"></select>
+          </label>
+
+          <div class="actions">
+            <button class="secondary" id="newCustomerBtn" type="button">New Customer</button>
+          </div>
+
+          <div class="customer-form hidden" id="newCustomerForm">
+            <label>
+              Name
+              <input id="newCustomerName">
+            </label>
+            <label>
+              Email
+              <input id="newCustomerEmail">
+            </label>
+            <label>
+              Phone
+              <input id="newCustomerPhone">
+            </label>
+            <label>
+              Address
+              <textarea id="newCustomerAddress" rows="3"></textarea>
+            </label>
+            <div class="actions">
+              <button class="primary compact" id="saveCustomerBtn" type="button">Save Customer</button>
+            </div>
           </div>
 
           <div class="section-title">Product Search</div>
@@ -49,6 +97,14 @@
 
       <section class="panel">
         <div class="panel-inner">
+          <div class="meta-actions">
+            <div class="sheet-pill" id="originalSheetName">Original sheet: -</div>
+            <div class="actions">
+              <button class="secondary" id="saveQuotationBtn" type="button">Save Quotation</button>
+              <button class="primary" id="bookDocketBtn" type="button">Book Sales</button>
+            </div>
+          </div>
+
           <div class="header-grid">
             <label>
               Title
@@ -60,7 +116,7 @@
             </label>
             <label>
               Customer
-              <input id="customerName">
+              <input id="customerName" disabled>
             </label>
             <label>
               Customer email
@@ -71,7 +127,7 @@
               <input id="orderNumber">
             </label>
             <label>
-              Payment method
+              Payment terms
               <input id="paymentTerms">
             </label>
             <label>
@@ -91,6 +147,7 @@
             <thead>
               <tr>
                 <th>Line</th>
+                <th>Image</th>
                 <th>Product #</th>
                 <th>Detail</th>
                 <th>Description</th>
@@ -125,6 +182,11 @@
               <div class="stat-value" id="grandTotal">-</div>
             </div>
           </div>
+
+          <div class="overflow-panel hidden" id="overflowPanel">
+            <div class="section-title" id="overflowTitle">Draft Dockets</div>
+            <div class="overflow-list" id="overflowList"></div>
+          </div>
         </div>
       </section>
     </section>
@@ -132,6 +194,6 @@
 
   <script src="./config.js"></script>
   <script src="./api.js"></script>
-  <script src="./app.js"></script>
+  <script src="./pos.js"></script>
 </body>
 </html>
