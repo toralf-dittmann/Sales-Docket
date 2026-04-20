@@ -20,7 +20,8 @@
     const text = String(value || '').trim();
     const match = text.match(/[-\w]{25,}/);
     if (match) return 'https://drive.google.com/thumbnail?id=' + match[0] + '&sz=w160';
-    return text;
+    if (text) return text;
+    return "data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='46' height='46'%3E%3Crect width='100%25' height='100%25' rx='8' fill='%23f0f4f4'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='9' fill='%2390a4a7'%3ENo image%3C/text%3E%3C/svg%3E";
   }
   function setButtonBusy(button, busy, busyText, idleText) {
     if (!button) return;
@@ -87,13 +88,14 @@
     $('paymentTerms').value = docket.header.paymentTerms || '';
     $('pricingMode').value = docket.header.pricingMode || 'domestic';
     $('originalSheetName').textContent = 'Original sheet: ' + (docket.meta.originalSheetName || '-');
+    $('docketStatusText').textContent = docket.status || 'draft';
     renderCustomers(docket.header.customerName || '');
 
     $('lineItems').innerHTML = docket.lines.length ? docket.lines.map(function(line) {
       return [
         '<tr data-line-id="' + esc(line.lineId) + '">',
         '<td>' + esc(line.sortOrder) + '</td>',
-        '<td><img class="line-image" src="' + esc(imgSrc(line.imageUrl || '')) + '" alt=""></td>',
+        '<td><img class="line-image" src="' + esc(imgSrc(line.imageUrl || '')) + '" alt="" onerror="this.onerror=null;this.src=\'' + imgSrc('') + '\'"></td>',
         '<td>' + esc(line.productNr) + '</td>',
         '<td><input class="table-input js-line-detail" value="' + esc(line.fullDetail) + '"></td>',
         '<td><input class="table-input js-line-description" value="' + esc(line.description) + '"></td>',
@@ -179,7 +181,7 @@
       products.map(function(product) {
         return [
           '<tr class="result-row" data-product="' + esc(product.productNr) + '">',
-          '<td class="result-img-cell"><img class="search-image" src="' + esc(imgSrc(product.imageSrc || product.imageUrl || '')) + '" alt=""></td>',
+          '<td class="result-img-cell"><img class="search-image" src="' + esc(imgSrc(product.imageSrc || product.imageUrl || '')) + '" alt="" onerror="this.onerror=null;this.src=\'' + imgSrc('') + '\'"></td>',
           '<td class="result-desc-cell">',
           '<div class="pn">' + esc(product.productNr) + '</div>',
           '<div>' + esc(product.description || '') + '</div>',

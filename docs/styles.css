@@ -172,8 +172,8 @@ input, select, button {
 input, select {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 13px;
+  border-radius: 4px;
+  padding: 8px 9px;
   color: var(--ink);
   background: #fff;
   box-shadow: inset 0 0 0 1px rgba(0, 255, 255, 0.04);
@@ -182,8 +182,8 @@ input, select {
 textarea {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 13px;
+  border-radius: 4px;
+  padding: 8px 9px;
   color: var(--ink);
   background: #fff;
   resize: vertical;
@@ -253,11 +253,27 @@ button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
   font-size: 12px;
 }
 
-.header-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+.header-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 14px;
+}
+
+.header-table th,
+.header-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 7px 8px;
+  vertical-align: middle;
+}
+
+.header-table th {
+  width: 16%;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .meta-grid {
@@ -372,7 +388,7 @@ table {
 
 th, td {
   text-align: left;
-  padding: 12px 10px;
+  padding: 7px 8px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
@@ -386,7 +402,9 @@ th {
 
 .table-input {
   min-width: 92px;
-  padding: 10px 11px;
+  padding: 5px 6px;
+  border-radius: 2px;
+  box-shadow: none;
 }
 
 .line-actions {
@@ -448,7 +466,11 @@ th {
 }
 
 @media (max-width: 720px) {
-  .header-grid { grid-template-columns: 1fr; }
+  .header-table,
+  .header-table tbody,
+  .header-table tr,
+  .header-table th,
+  .header-table td { display: block; width: 100%; }
   .meta-grid { grid-template-columns: 1fr; }
   .result-action-cell,
   .result-meta-cell { width: auto; }

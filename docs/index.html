@@ -103,39 +103,39 @@
             </div>
           </div>
 
-          <div class="header-grid">
-            <label>
-              Title
-              <input id="title">
-            </label>
-            <label>
-              Docket number
-              <input id="docketNumber" disabled>
-            </label>
-            <label>
-              Customer
-              <input id="customerName" disabled>
-            </label>
-            <label>
-              Customer email
-              <input id="customerEmail">
-            </label>
-            <label>
-              Order number
-              <input id="orderNumber">
-            </label>
-            <label>
-              Payment terms
-              <input id="paymentTerms">
-            </label>
-            <label>
-              Pricing mode
-              <select id="pricingMode">
-                <option value="domestic">Domestic</option>
-                <option value="export">Export</option>
-              </select>
-            </label>
-          </div>
+          <table class="header-table">
+            <tbody>
+              <tr>
+                <th>Title</th>
+                <td><input id="title"></td>
+                <th>Docket Number</th>
+                <td><input id="docketNumber" disabled></td>
+              </tr>
+              <tr>
+                <th>Customer</th>
+                <td><input id="customerName" disabled></td>
+                <th>Customer Email</th>
+                <td><input id="customerEmail"></td>
+              </tr>
+              <tr>
+                <th>Order Number</th>
+                <td><input id="orderNumber"></td>
+                <th>Payment Terms</th>
+                <td><input id="paymentTerms"></td>
+              </tr>
+              <tr>
+                <th>Pricing Mode</th>
+                <td>
+                  <select id="pricingMode">
+                    <option value="domestic">Domestic</option>
+                    <option value="export">Export</option>
+                  </select>
+                </td>
+                <th>Status</th>
+                <td><span id="docketStatusText">Draft</span></td>
+              </tr>
+            </tbody>
+          </table>
 
           <div class="actions section-space">
             <button class="primary" id="saveHeaderBtn" type="button">Save Header</button>
