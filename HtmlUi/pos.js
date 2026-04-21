@@ -8,6 +8,7 @@
   };
   let priceModeResolver = null;
   let searchTimer = null;
+  let statusTimer = null;
 
   const $ = function(id) {
     const el = document.getElementById(id);
@@ -15,8 +16,42 @@
     return el;
   };
 
-  function setStatus(text) {
-    $('status').textContent = text;
+  function applyStatusTone(highlight) {
+    const el = $('status');
+    if (highlight) {
+      el.classList.add('status-fresh');
+      el.style.color = 'var(--magenta)';
+      el.style.backgroundColor = '#fff8fc';
+      el.style.borderColor = 'rgba(226, 0, 138, 0.22)';
+      return;
+    }
+
+    el.classList.remove('status-fresh');
+    el.style.color = 'var(--ink)';
+    el.style.backgroundColor = '#f1f3f4';
+    el.style.borderColor = 'var(--line)';
+  }
+
+  function setStatus(text, options) {
+    const el = $('status');
+    const settings = options || {};
+    const highlight = settings.highlight !== false;
+    const holdMs = settings.holdMs || 5000;
+
+    el.textContent = text;
+    applyStatusTone(highlight);
+
+    if (statusTimer) {
+      clearTimeout(statusTimer);
+      statusTimer = null;
+    }
+
+    if (highlight) {
+      statusTimer = setTimeout(function() {
+        applyStatusTone(false);
+        statusTimer = null;
+      }, holdMs);
+    }
   }
 
   function money(v) {
@@ -161,19 +196,19 @@
             await refreshLists(state.currentDraftId);
             setStatus('Quotation restored into ' + (docket.meta.originalSheetName || docket.docketId) + '.');
           } catch (error) {
-            setStatus('Quotation restore failed: ' + error.message);
+            setStatus('Quotation restore failed: ' + error.message, { highlight: false });
           }
           return;
         }
 
         try {
-          setStatus('Loading booked sale...');
+          setStatus('Loading sales docket ' + (row.cells[1] ? row.cells[1].textContent : docketId) + '...', { highlight: false });
           const docket = await window.SalesDocketApi.loadDocket(docketId);
           renderDocket(docket);
           bindLineEvents();
           setStatus('Showing booked docket read only.');
         } catch (error) {
-          setStatus('Booked docket load failed: ' + error.message);
+          setStatus('Booked docket load failed: ' + error.message, { highlight: false });
         }
       });
     });
@@ -292,23 +327,23 @@
       ['.js-line-detail', '.js-line-description', '.js-line-qty', '.js-line-price'].forEach(function(sel) {
         tr.querySelector(sel).addEventListener('change', async function() {
           try {
-            setStatus('Recalculating line...');
+            setStatus('Recalculating line...', { highlight: false });
             await save();
             setStatus('Line recalculated.');
           } catch (error) {
-            setStatus('Line update failed: ' + error.message);
+            setStatus('Line update failed: ' + error.message, { highlight: false });
           }
         });
       });
 
       tr.querySelector('.js-line-delete').addEventListener('click', async function() {
         try {
-          setStatus('Deleting line...');
+          setStatus('Deleting line...', { highlight: false });
           const docket = await window.SalesDocketApi.deleteDocketLine(activeId(), lineId);
           syncCurrentDocket(docket);
           setStatus('Line deleted.');
         } catch (error) {
-          setStatus('Delete failed: ' + error.message);
+          setStatus('Delete failed: ' + error.message, { highlight: false });
         }
       });
     });
@@ -347,12 +382,12 @@
         }
         try {
           row.classList.add('result-row-busy');
-          setStatus('Adding ' + row.getAttribute('data-product') + '...');
+          setStatus('Adding ' + row.getAttribute('data-product') + '...', { highlight: false });
           const docket = await window.SalesDocketApi.addDocketLine(state.currentDraftId, { productNr: row.getAttribute('data-product'), quantity: 1 });
           syncCurrentDocket(docket);
           setStatus('Added ' + row.getAttribute('data-product') + '.');
         } catch (error) {
-          setStatus('Add failed: ' + error.message);
+          setStatus('Add failed: ' + error.message, { highlight: false });
         } finally {
           row.classList.remove('result-row-busy');
         }
@@ -376,17 +411,19 @@
     if (!docketId) return;
     state.currentDraftId = docketId;
     try {
+      const selectedLabel = $('docketSelect').selectedOptions[0] ? $('docketSelect').selectedOptions[0].textContent : docketId;
+      setStatus('Loading sales docket ' + selectedLabel + '...', { highlight: false });
       const docket = await window.SalesDocketApi.loadDocket(docketId);
       syncCurrentDocket(docket);
       setStatus('Loaded ' + (docket.meta.originalSheetName || docket.docketId) + '.');
     } catch (error) {
-      setStatus('Load failed: ' + error.message);
+      setStatus('Load failed: ' + error.message, { highlight: false });
     }
   }
 
   async function saveHeader() {
     if (!state.currentDraftId) {
-      setStatus('Create or select a draft docket first.');
+      setStatus('Create or select a draft docket first.', { highlight: false });
       return null;
     }
     const header = {
@@ -403,12 +440,15 @@
   }
 
   async function bootstrap() {
+    setStatus('Loading Sales Docket application...', { highlight: false });
     const data = await window.SalesDocketApi.bootstrap();
     renderAccount(data.currentUser);
     renderCompanies();
     state.customers = data.customers || [];
     renderCustomers('');
+    setStatus('Preparing Sales Docket storage...', { highlight: false });
     await window.SalesDocketApi.ensureStorage();
+    setStatus('Loading draft dockets...', { highlight: false });
     await refreshLists(data.dockets && data.dockets[0] ? data.dockets[0].docketId : '');
     if ($('docketSelect').value) await loadSelectedDocket();
     else setStatus('No draft dockets yet. Create the first docket to begin.');
@@ -428,7 +468,7 @@
         setStatus('Created ' + (docket.meta.originalSheetName || docket.docketId) + '.');
       });
     } catch (error) {
-      setStatus('Create failed: ' + error.message);
+      setStatus('Create failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -440,16 +480,17 @@
         setStatus('Header saved.');
       });
     } catch (error) {
-      setStatus('Save failed: ' + error.message);
+      setStatus('Save failed: ' + error.message, { highlight: false });
     }
   });
 
   $('pricingMode').addEventListener('change', async function() {
     try {
+      setStatus('Switching pricing mode...', { highlight: false });
       const docket = await saveHeader();
       if (docket) setStatus('Pricing mode updated and VAT recalculated.');
     } catch (error) {
-      setStatus('Mode switch failed: ' + error.message);
+      setStatus('Mode switch failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -468,7 +509,7 @@
       await saveHeader();
       setStatus('Customer applied.');
     } catch (error) {
-      setStatus('Customer load failed: ' + error.message);
+      setStatus('Customer load failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -495,7 +536,7 @@
         setStatus('Customer saved.');
       });
     } catch (error) {
-      setStatus('Customer save failed: ' + error.message);
+      setStatus('Customer save failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -503,6 +544,7 @@
     const button = this;
     try {
       await runButtonAction(button, 'Booking...', async function() {
+        setStatus('Booking sales docket ' + ($('originalSheetName').textContent.replace('Original sheet: ', '') || activeId()) + '...', { highlight: false });
         const result = await window.SalesDocketApi.bookDocket(activeId());
         syncCurrentDocket(result.activeDocket);
         await refreshLists(result.activeDocket.docketId);
@@ -511,7 +553,7 @@
         setStatus('Sales booked as ' + (result.registerDocket.header.documentNumber || 'new docket') + '.');
       });
     } catch (error) {
-      setStatus('Book failed: ' + error.message);
+      setStatus('Book failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -519,6 +561,7 @@
     const button = this;
     try {
       await runButtonAction(button, 'Saving...', async function() {
+        setStatus('Saving quotation for ' + ($('originalSheetName').textContent.replace('Original sheet: ', '') || activeId()) + '...', { highlight: false });
         const result = await window.SalesDocketApi.saveQuotation(activeId());
         syncCurrentDocket(result.activeDocket);
         await refreshLists(result.activeDocket.docketId);
@@ -527,7 +570,7 @@
         setStatus('Quotation saved as ' + (result.registerDocket.header.quotationNumber || 'new quotation') + '.');
       });
     } catch (error) {
-      setStatus('Quotation failed: ' + error.message);
+      setStatus('Quotation failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -555,7 +598,7 @@
         }).format(new Date(data.at)));
       });
     } catch (error) {
-      setStatus('Ping failed: ' + error.message);
+      setStatus('Ping failed: ' + error.message, { highlight: false });
     }
   });
 
@@ -580,16 +623,17 @@
         return;
       }
       try {
+        setStatus('Searching products for "' + query + '"...', { highlight: false });
         const data = await window.SalesDocketApi.searchProducts(query);
         renderSearch(data.products || []);
         setStatus((data.products || []).length + ' search results ready.');
       } catch (error) {
-        setStatus('Search failed: ' + error.message);
+        setStatus('Search failed: ' + error.message, { highlight: false });
       }
     }, 120);
   });
 
   bootstrap().catch(function(error) {
-    setStatus('Bootstrap failed: ' + error.message);
+    setStatus('Bootstrap failed: ' + error.message, { highlight: false });
   });
 })();
