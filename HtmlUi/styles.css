@@ -76,9 +76,19 @@ body {
 
 .grid {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 18px;
   align-items: start;
+}
+
+.docket-main {
+  order: 1;
+}
+
+.search-sidebar {
+  order: 2;
+  position: sticky;
+  top: 68px;
 }
 
 .panel {
@@ -415,6 +425,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
 
 .customer-picker {
   position: relative;
+  min-width: 280px;
 }
 
 .customer-actions {
@@ -433,6 +444,10 @@ button:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
   border-radius: 6px;
   box-shadow: var(--shadow);
   z-index: 30;
+}
+
+.header-table td {
+  position: relative;
 }
 
 .lookup-row {

@@ -30,34 +30,7 @@
     <div class="status status-dock" id="status">Connecting to the HtmlUi backend.</div>
 
     <section class="grid">
-      <aside class="panel">
-        <div class="panel-inner stack">
-          <div class="section-title">Docket Control</div>
-
-          <div class="company-tabs" id="companyTabs"></div>
-
-          <label>
-            Existing draft dockets
-            <select id="docketSelect"></select>
-          </label>
-
-          <div class="actions">
-            <button class="primary" id="createDocketBtn" type="button">New Docket</button>
-            <button class="secondary" id="pingBtn" type="button">Ping</button>
-          </div>
-
-          <div class="section-title">Product Search</div>
-
-          <label>
-            Search by product number or description
-            <input id="searchInput" placeholder="Example: Y0055 or teak">
-          </label>
-
-          <div class="search-results" id="results"></div>
-        </div>
-      </aside>
-
-      <section class="panel">
+      <section class="panel docket-main">
         <div class="panel-inner">
           <div class="meta-actions">
             <div class="sheet-pill" id="originalSheetName">Original sheet: -</div>
@@ -177,6 +150,33 @@
           </div>
         </div>
       </section>
+
+      <aside class="panel search-sidebar">
+        <div class="panel-inner stack">
+          <div class="section-title">Docket Control</div>
+
+          <div class="company-tabs" id="companyTabs"></div>
+
+          <label>
+            Existing draft dockets
+            <select id="docketSelect"></select>
+          </label>
+
+          <div class="actions">
+            <button class="primary" id="createDocketBtn" type="button">New Docket</button>
+            <button class="secondary" id="pingBtn" type="button">Ping</button>
+          </div>
+
+          <div class="section-title">Product Search</div>
+
+          <label>
+            Search by product number or description
+            <input id="searchInput" placeholder="Example: Y0055 or teak">
+          </label>
+
+          <div class="search-results" id="results"></div>
+        </div>
+      </aside>
     </section>
 
     <section class="panel register-panel">
