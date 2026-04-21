@@ -2,6 +2,8 @@
   const state = {
     docket: null,
     currentDraftId: '',
+    selectedCompany: 'AQIML',
+    showAllCompanies: false,
     registerTab: 'sales',
     lists: { drafts: [], booked: [], quotations: [] },
     customers: []
@@ -9,6 +11,7 @@
   let priceModeResolver = null;
   let searchTimer = null;
   let statusTimer = null;
+  let autoSaveTimer = null;
 
   const $ = function(id) {
     const el = document.getElementById(id);
@@ -20,16 +23,16 @@
     const el = $('status');
     if (highlight) {
       el.classList.add('status-fresh');
-      el.style.color = 'var(--magenta)';
+      el.style.color = '#e2008a';
       el.style.backgroundColor = '#fff8fc';
       el.style.borderColor = 'rgba(226, 0, 138, 0.22)';
       return;
     }
 
     el.classList.remove('status-fresh');
-    el.style.color = 'var(--ink)';
+    el.style.color = '#1f2933';
     el.style.backgroundColor = '#f1f3f4';
-    el.style.borderColor = 'var(--line)';
+    el.style.borderColor = '#d8dee4';
   }
 
   function setStatus(text, options) {
@@ -129,10 +132,34 @@
     $('accountChip').title = email || 'Operator account';
   }
 
+  function filterRowsBySelectedCompany(rows) {
+    return (rows || []).filter(function(item) {
+      return String(item.companyCode || '').trim().toUpperCase() === state.selectedCompany;
+    });
+  }
+
+  function companyFilteredRows(rows) {
+    if (state.showAllCompanies) return rows || [];
+    return filterRowsBySelectedCompany(rows);
+  }
+
   function renderCompanies() {
-    $('companySelect').innerHTML = ['AQIML', 'TIFL', 'TIL', 'AQI', 'AQIAU'].map(function(code) {
-      return '<option value="' + code + '">' + code + '</option>';
+    const companies = ['AQIML', 'TIFL', 'TIL', 'AQI', 'AQIAU'];
+    $('companyTabs').innerHTML = companies.map(function(code) {
+      return '<button class="company-tab' + (code === state.selectedCompany ? ' is-active' : '') + '" data-company="' + code + '" type="button">' + code + '</button>';
     }).join('');
+
+    Array.prototype.forEach.call(document.querySelectorAll('#companyTabs .company-tab'), function(button) {
+      button.addEventListener('click', function() {
+        state.selectedCompany = button.getAttribute('data-company');
+        state.currentDraftId = '';
+        renderCompanies();
+        renderDrafts('');
+        renderRegister();
+        renderEmptyDocketState('Select a draft docket or create a new one for ' + state.selectedCompany + '.');
+        setStatus('Company switched to ' + state.selectedCompany + '.');
+      });
+    });
   }
 
   function renderCustomers(preferred) {
@@ -143,26 +170,25 @@
   }
 
   function renderDrafts(preferredId) {
-    const drafts = state.lists.drafts || [];
+    const drafts = filterRowsBySelectedCompany(state.lists.drafts);
     $('docketSelect').innerHTML = drafts.length
-      ? drafts.map(function(item) {
+      ? ['<option value="">Select a draft docket</option>'].concat(drafts.map(function(item) {
           return '<option value="' + esc(item.docketId) + '">' + esc(item.originalSheetName || item.docketId) + ' - ' + esc(item.customerName || 'No customer') + '</option>';
-        }).join('')
+        })).join('')
       : '<option value="">No active draft dockets</option>';
 
     if (preferredId && drafts.some(function(item) { return item.docketId === preferredId; })) {
       $('docketSelect').value = preferredId;
       state.currentDraftId = preferredId;
-    } else if ($('docketSelect').value) {
-      state.currentDraftId = $('docketSelect').value;
     } else {
+      $('docketSelect').value = '';
       state.currentDraftId = '';
     }
   }
 
   function renderRegister() {
     const tab = state.registerTab === 'quotations' ? 'quotations' : 'booked';
-    const rows = tab === 'booked' ? state.lists.booked : state.lists.quotations;
+    const rows = companyFilteredRows(tab === 'booked' ? state.lists.booked : state.lists.quotations);
     $('salesTabBtn').classList.toggle('is-active', tab === 'booked');
     $('quotationsTabBtn').classList.toggle('is-active', tab === 'quotations');
     $('registerNumberLabel').textContent = tab === 'booked' ? 'Sales #' : 'Quotation #';
@@ -214,12 +240,32 @@
     });
   }
 
+  function renderEmptyDocketState(message) {
+    state.docket = null;
+    $('title').value = '';
+    $('docketNumber').value = '';
+    $('quotationNumber').textContent = '-';
+    $('customerName').value = '';
+    $('customerEmail').value = '';
+    $('orderNumber').value = '';
+    $('paymentTerms').value = '';
+    $('pricingMode').value = 'domestic';
+    $('originalSheetName').textContent = 'Original sheet: -';
+    $('docketStatusText').textContent = message || 'No docket loaded';
+    $('lineItems').innerHTML = '<tr><td colspan="10" class="empty">No docket loaded yet.</td></tr>';
+    $('subtotal').textContent = money(0);
+    $('shipping').textContent = money(0);
+    $('vatRateDefault').textContent = pct(0);
+    $('vatAmount').textContent = money(0);
+    $('grandTotal').textContent = money(0);
+    setDocketInteractivity(null);
+  }
+
   function setDocketInteractivity(docket) {
     const readOnly = !docket || docket.readOnly;
     ['title', 'customerEmail', 'orderNumber', 'paymentTerms', 'pricingMode'].forEach(function(id) {
       $(id).disabled = readOnly;
     });
-    $('saveHeaderBtn').disabled = readOnly;
     $('saveQuotationBtn').disabled = readOnly;
     $('bookDocketBtn').disabled = readOnly;
   }
@@ -236,18 +282,14 @@
     $('pricingMode').value = docket.header.pricingMode || 'domestic';
     $('originalSheetName').textContent = 'Original sheet: ' + (docket.meta.originalSheetName || '-');
     $('docketStatusText').textContent = docket.status || 'draft';
-    $('vatRateDefaultInline').textContent = pct(docket.header.displayVatRate || docket.header.vatRateDefault || 0);
     renderCustomers(docket.header.customerName || '');
     setDocketInteractivity(docket);
 
     $('lineItems').innerHTML = docket.lines.length ? docket.lines.map(function(line) {
       const imageCell = '<img class="line-image" src="' + esc(imgSrc(line.imageUrl || '')) + '" alt="" onerror="this.onerror=null;this.src=\'' + imgSrc('') + '\'">';
-      const detailCell = docket.readOnly
-        ? '<span class="cell-value">' + esc(line.fullDetail) + '</span>'
-        : '<input class="table-input js-line-detail" value="' + esc(line.fullDetail) + '">';
       const descCell = docket.readOnly
         ? '<span class="cell-value">' + esc(line.description) + '</span>'
-        : '<input class="table-input js-line-description" value="' + esc(line.description) + '">';
+        : '<textarea class="table-input description-input js-line-description" rows="2">' + esc(line.description) + '</textarea>';
       const qtyCell = docket.readOnly
         ? '<span class="cell-value">' + esc(line.qty) + '</span>'
         : '<input class="table-input js-line-qty" type="number" min="1" step="1" value="' + esc(line.qty) + '">';
@@ -263,8 +305,7 @@
         '<td>' + esc(line.sortOrder) + '</td>',
         '<td>' + imageCell + '</td>',
         '<td>' + esc(line.productNr) + '</td>',
-        '<td>' + detailCell + '</td>',
-        '<td>' + descCell + '</td>',
+        '<td class="description-cell">' + descCell + '</td>',
         '<td>' + qtyCell + '</td>',
         '<td>' + priceCell + '</td>',
         '<td>' + amount(line.unitPriceNet) + '</td>',
@@ -273,7 +314,7 @@
         '<td class="line-actions">' + actionCell + '</td>',
         '</tr>'
       ].join('');
-    }).join('') : '<tr><td colspan="11" class="empty">No line items entered yet.</td></tr>';
+    }).join('') : '<tr><td colspan="10" class="empty">No line items entered yet.</td></tr>';
 
     $('subtotal').textContent = money(docket.totals.subtotalNet);
     $('shipping').textContent = money(docket.totals.shippingNet);
@@ -315,7 +356,6 @@
         }
 
         const patch = {
-          fullDetail: tr.querySelector('.js-line-detail').value,
           description: tr.querySelector('.js-line-description').value,
           quantity: tr.querySelector('.js-line-qty').value,
           unitPriceInput: unitPriceInput
@@ -324,7 +364,7 @@
         syncCurrentDocket(docket);
       };
 
-      ['.js-line-detail', '.js-line-description', '.js-line-qty', '.js-line-price'].forEach(function(sel) {
+      ['.js-line-description', '.js-line-qty', '.js-line-price'].forEach(function(sel) {
         tr.querySelector(sel).addEventListener('change', async function() {
           try {
             setStatus('Recalculating line...', { highlight: false });
@@ -408,7 +448,12 @@
 
   async function loadSelectedDocket() {
     const docketId = $('docketSelect').value;
-    if (!docketId) return;
+    if (!docketId) {
+      state.currentDraftId = '';
+      renderEmptyDocketState('Select a draft docket or create a new one for ' + state.selectedCompany + '.');
+      setStatus('No draft docket selected.', { highlight: false });
+      return;
+    }
     state.currentDraftId = docketId;
     try {
       const selectedLabel = $('docketSelect').selectedOptions[0] ? $('docketSelect').selectedOptions[0].textContent : docketId;
@@ -439,6 +484,22 @@
     return docket;
   }
 
+  function queueAutoSave(message) {
+    if (!state.currentDraftId || !state.docket || state.docket.readOnly) return;
+    if (autoSaveTimer) clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(async function() {
+      try {
+        setStatus(message || 'Saving changes...', { highlight: false });
+        await saveHeader();
+        setStatus('Changes saved.');
+      } catch (error) {
+        setStatus('Autosave failed: ' + error.message, { highlight: false });
+      } finally {
+        autoSaveTimer = null;
+      }
+    }, 200);
+  }
+
   async function bootstrap() {
     setStatus('Loading Sales Docket application...', { highlight: false });
     const data = await window.SalesDocketApi.bootstrap();
@@ -449,9 +510,9 @@
     setStatus('Preparing Sales Docket storage...', { highlight: false });
     await window.SalesDocketApi.ensureStorage();
     setStatus('Loading draft dockets...', { highlight: false });
-    await refreshLists(data.dockets && data.dockets[0] ? data.dockets[0].docketId : '');
-    if ($('docketSelect').value) await loadSelectedDocket();
-    else setStatus('No draft dockets yet. Create the first docket to begin.');
+    await refreshLists('');
+    renderEmptyDocketState('Select a company and choose or create a docket.');
+    setStatus('Choose a company to begin.');
   }
 
   $('createDocketBtn').addEventListener('click', async function() {
@@ -459,7 +520,7 @@
     try {
       await runButtonAction(button, 'Creating...', async function() {
         const docket = await window.SalesDocketApi.createDocket({
-          companyCode: $('companySelect').value,
+          companyCode: state.selectedCompany,
           pricingMode: $('pricingMode').value
         });
         state.currentDraftId = docket.docketId;
@@ -472,18 +533,6 @@
     }
   });
 
-  $('saveHeaderBtn').addEventListener('click', async function() {
-    const button = this;
-    try {
-      await runButtonAction(button, 'Saving...', async function() {
-        await saveHeader();
-        setStatus('Header saved.');
-      });
-    } catch (error) {
-      setStatus('Save failed: ' + error.message, { highlight: false });
-    }
-  });
-
   $('pricingMode').addEventListener('change', async function() {
     try {
       setStatus('Switching pricing mode...', { highlight: false });
@@ -492,6 +541,12 @@
     } catch (error) {
       setStatus('Mode switch failed: ' + error.message, { highlight: false });
     }
+  });
+
+  ['title', 'customerEmail', 'orderNumber', 'paymentTerms'].forEach(function(id) {
+    $(id).addEventListener('change', function() {
+      queueAutoSave('Saving changes to sales docket...');
+    });
   });
 
   $('docketSelect').addEventListener('change', loadSelectedDocket);
@@ -582,6 +637,12 @@
   $('quotationsTabBtn').addEventListener('click', function() {
     state.registerTab = 'quotations';
     renderRegister();
+  });
+
+  $('showAllCompanies').addEventListener('change', function() {
+    state.showAllCompanies = $('showAllCompanies').checked;
+    renderRegister();
+    setStatus(state.showAllCompanies ? 'Showing activities for all companies.' : 'Showing activities for ' + state.selectedCompany + '.');
   });
 
   $('pingBtn').addEventListener('click', async function() {

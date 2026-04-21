@@ -26,10 +26,7 @@
         <div class="panel-inner stack">
           <div class="section-title">Docket Control</div>
 
-          <label>
-            Company
-            <select id="companySelect"></select>
-          </label>
+          <div class="company-tabs" id="companyTabs"></div>
 
           <label>
             Existing draft dockets
@@ -124,21 +121,15 @@
                     <option value="export">Export</option>
                   </select>
                 </td>
-                <th>VAT Rate</th>
-                <td><span id="vatRateDefaultInline">-</span></td>
-              </tr>
-              <tr>
                 <th>Quotation #</th>
                 <td><span id="quotationNumber">-</span></td>
+              </tr>
+              <tr>
                 <th>Status</th>
-                <td><span id="docketStatusText">Draft</span></td>
+                <td colspan="3"><span id="docketStatusText">No docket loaded</span></td>
               </tr>
             </tbody>
           </table>
-
-          <div class="actions section-space">
-            <button class="brand-aqua" id="saveHeaderBtn" type="button">Save Header</button>
-          </div>
 
           <table class="line-table">
             <thead>
@@ -146,8 +137,7 @@
                 <th>Line</th>
                 <th>Image</th>
                 <th>Product #</th>
-                <th>Detail</th>
-                <th>Description</th>
+                <th class="description-col">Description</th>
                 <th>Qty</th>
                 <th>Unit Input</th>
                 <th>VEP</th>
@@ -192,9 +182,15 @@
             <div class="section-title">Sales Register</div>
             <div class="register-copy">Click a sales row to open it read only. Click a quotation row to refill the active draft docket.</div>
           </div>
-          <div class="tab-row">
-            <button class="tab-button is-active" id="salesTabBtn" type="button">Sales</button>
-            <button class="tab-button" id="quotationsTabBtn" type="button">Quotations</button>
+          <div class="register-controls">
+            <label class="toggle-row">
+              <input id="showAllCompanies" type="checkbox">
+              <span>Show all companies</span>
+            </label>
+            <div class="tab-row">
+              <button class="tab-button is-active" id="salesTabBtn" type="button">Sales</button>
+              <button class="tab-button" id="quotationsTabBtn" type="button">Quotations</button>
+            </div>
           </div>
         </div>
         <table class="register-table">
