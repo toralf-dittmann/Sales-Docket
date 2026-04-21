@@ -12,6 +12,7 @@
   let searchTimer = null;
   let statusTimer = null;
   let autoSaveTimer = null;
+  let customerTimer = null;
 
   const $ = function(id) {
     const el = document.getElementById(id);
@@ -162,11 +163,39 @@
     });
   }
 
-  function renderCustomers(preferred) {
-    $('customerSelect').innerHTML = state.customers.map(function(name) {
-      return '<option value="' + esc(name) + '">' + esc(name) + '</option>';
-    }).join('');
-    if (preferred && state.customers.indexOf(preferred) !== -1) $('customerSelect').value = preferred;
+  function renderCustomerMatches(preferredQuery) {
+    const query = String(preferredQuery || '').trim().toLowerCase();
+    const matches = state.customers
+      .filter(function(name) { return name && name !== '<new customer>'; })
+      .filter(function(name) {
+        return !query || name.toLowerCase().indexOf(query) !== -1;
+      })
+      .slice(0, 25);
+
+    $('customerResults').innerHTML = matches.length
+      ? matches.map(function(name) {
+          return '<button class="lookup-row" data-customer="' + esc(name) + '" type="button">' + esc(name) + '</button>';
+        }).join('')
+      : '<div class="empty">No matching customers.</div>';
+
+    $('customerResults').classList.toggle('hidden', !matches.length);
+
+    Array.prototype.forEach.call(document.querySelectorAll('#customerResults .lookup-row'), function(button) {
+      button.addEventListener('click', async function() {
+        const name = button.getAttribute('data-customer');
+        try {
+          setStatus('Loading customer ' + name + '...', { highlight: false });
+          const customer = await window.SalesDocketApi.getCustomerByName(name);
+          $('customerSearch').value = customer.name || '';
+          $('customerEmail').value = customer.email || '';
+          $('customerResults').classList.add('hidden');
+          await saveHeader();
+          setStatus('Customer applied.');
+        } catch (error) {
+          setStatus('Customer load failed: ' + error.message, { highlight: false });
+        }
+      });
+    });
   }
 
   function renderDrafts(preferredId) {
@@ -245,13 +274,14 @@
     $('title').value = '';
     $('docketNumber').value = '';
     $('quotationNumber').textContent = '-';
-    $('customerName').value = '';
+    $('customerSearch').value = '';
     $('customerEmail').value = '';
     $('orderNumber').value = '';
     $('paymentTerms').value = '';
     $('pricingMode').value = 'domestic';
     $('originalSheetName').textContent = 'Original sheet: -';
     $('docketStatusText').textContent = message || 'No docket loaded';
+    $('customerResults').classList.add('hidden');
     $('lineItems').innerHTML = '<tr><td colspan="10" class="empty">No docket loaded yet.</td></tr>';
     $('subtotal').textContent = money(0);
     $('shipping').textContent = money(0);
@@ -263,7 +293,7 @@
 
   function setDocketInteractivity(docket) {
     const readOnly = !docket || docket.readOnly;
-    ['title', 'customerEmail', 'orderNumber', 'paymentTerms', 'pricingMode'].forEach(function(id) {
+    ['title', 'customerSearch', 'customerEmail', 'orderNumber', 'paymentTerms', 'pricingMode'].forEach(function(id) {
       $(id).disabled = readOnly;
     });
     $('saveQuotationBtn').disabled = readOnly;
@@ -275,14 +305,14 @@
     $('title').value = docket.header.title || '';
     $('docketNumber').value = docket.header.documentNumber || docket.docketId || '';
     $('quotationNumber').textContent = docket.header.quotationNumber || '-';
-    $('customerName').value = docket.header.customerName || '';
+    $('customerSearch').value = docket.header.customerName || '';
     $('customerEmail').value = docket.header.customerEmail || '';
     $('orderNumber').value = docket.header.orderNumber || '';
     $('paymentTerms').value = docket.header.paymentTerms || '';
     $('pricingMode').value = docket.header.pricingMode || 'domestic';
     $('originalSheetName').textContent = 'Original sheet: ' + (docket.meta.originalSheetName || '-');
     $('docketStatusText').textContent = docket.status || 'draft';
-    renderCustomers(docket.header.customerName || '');
+    $('customerResults').classList.add('hidden');
     setDocketInteractivity(docket);
 
     $('lineItems').innerHTML = docket.lines.length ? docket.lines.map(function(line) {
@@ -473,7 +503,7 @@
     }
     const header = {
       title: $('title').value,
-      customerName: $('customerName').value,
+      customerName: $('customerSearch').value,
       customerEmail: $('customerEmail').value,
       orderNumber: $('orderNumber').value,
       paymentTerms: $('paymentTerms').value,
@@ -506,7 +536,6 @@
     renderAccount(data.currentUser);
     renderCompanies();
     state.customers = data.customers || [];
-    renderCustomers('');
     setStatus('Preparing Sales Docket storage...', { highlight: false });
     await window.SalesDocketApi.ensureStorage();
     setStatus('Loading draft dockets...', { highlight: false });
@@ -549,24 +578,23 @@
     });
   });
 
-  $('docketSelect').addEventListener('change', loadSelectedDocket);
-
-  $('customerSelect').addEventListener('change', async function() {
-    if ($('customerSelect').value === '<new customer>') {
-      $('newCustomerForm').classList.remove('hidden');
-      return;
-    }
-    $('newCustomerForm').classList.add('hidden');
-    try {
-      const customer = await window.SalesDocketApi.getCustomerByName($('customerSelect').value);
-      $('customerName').value = customer.name || '';
-      $('customerEmail').value = customer.email || '';
-      await saveHeader();
-      setStatus('Customer applied.');
-    } catch (error) {
-      setStatus('Customer load failed: ' + error.message, { highlight: false });
-    }
+  $('customerSearch').addEventListener('input', function() {
+    clearTimeout(customerTimer);
+    customerTimer = setTimeout(function() {
+      renderCustomerMatches($('customerSearch').value);
+    }, 80);
   });
+
+  $('customerSearch').addEventListener('focus', function() {
+    renderCustomerMatches($('customerSearch').value);
+  });
+
+  $('customerSearch').addEventListener('change', function() {
+    $('customerResults').classList.add('hidden');
+    queueAutoSave('Saving customer details...');
+  });
+
+  $('docketSelect').addEventListener('change', loadSelectedDocket);
 
   $('newCustomerBtn').addEventListener('click', function() {
     $('newCustomerForm').classList.toggle('hidden');
@@ -583,8 +611,7 @@
           address: $('newCustomerAddress').value
         });
         state.customers = await window.SalesDocketApi.listCustomers();
-        renderCustomers(customer.name);
-        $('customerName').value = customer.name || '';
+        $('customerSearch').value = customer.name || '';
         $('customerEmail').value = customer.email || '';
         $('newCustomerForm').classList.add('hidden');
         await saveHeader();

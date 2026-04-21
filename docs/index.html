@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Sales Docket POS</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2300ffff'/%3E%3Cpath d='M10 44 L24 20 L32 32 L40 20 L54 44 Z' fill='%2300ff00'/%3E%3C/svg%3E">
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -20,6 +20,7 @@
         </button>
       </div>
     </section>
+    <div class="status status-dock" id="status">Connecting to the HtmlUi backend.</div>
 
     <section class="grid">
       <aside class="panel">
@@ -38,39 +39,6 @@
             <button class="secondary" id="pingBtn" type="button">Ping</button>
           </div>
 
-          <div class="section-title">Customer</div>
-
-          <label>
-            Customer
-            <select id="customerSelect"></select>
-          </label>
-
-          <div class="actions">
-            <button class="secondary" id="newCustomerBtn" type="button">New Customer</button>
-          </div>
-
-          <div class="customer-form hidden" id="newCustomerForm">
-            <label>
-              Name
-              <input id="newCustomerName">
-            </label>
-            <label>
-              Email
-              <input id="newCustomerEmail">
-            </label>
-            <label>
-              Phone
-              <input id="newCustomerPhone">
-            </label>
-            <label>
-              Address
-              <textarea id="newCustomerAddress" rows="3"></textarea>
-            </label>
-            <div class="actions">
-              <button class="primary compact" id="saveCustomerBtn" type="button">Save Customer</button>
-            </div>
-          </div>
-
           <div class="section-title">Product Search</div>
 
           <label>
@@ -79,7 +47,6 @@
           </label>
 
           <div class="search-results" id="results"></div>
-          <div class="status" id="status">Connecting to the HtmlUi backend.</div>
         </div>
       </aside>
 
@@ -103,7 +70,15 @@
               </tr>
               <tr>
                 <th>Customer</th>
-                <td><input id="customerName" disabled></td>
+                <td>
+                  <div class="customer-picker">
+                    <input id="customerSearch" autocomplete="off" placeholder="Type customer name">
+                    <div class="lookup-results hidden" id="customerResults"></div>
+                  </div>
+                  <div class="actions customer-actions">
+                    <button class="secondary compact" id="newCustomerBtn" type="button">New Customer</button>
+                  </div>
+                </td>
                 <th>Customer Email</th>
                 <td><input id="customerEmail"></td>
               </tr>
@@ -169,6 +144,28 @@
             <div class="stat">
               <div class="stat-label">Grand Total</div>
               <div class="stat-value" id="grandTotal">-</div>
+            </div>
+          </div>
+
+          <div class="customer-form hidden" id="newCustomerForm">
+            <label>
+              Name
+              <input id="newCustomerName">
+            </label>
+            <label>
+              Email
+              <input id="newCustomerEmail">
+            </label>
+            <label>
+              Phone
+              <input id="newCustomerPhone">
+            </label>
+            <label>
+              Address
+              <textarea id="newCustomerAddress" rows="3"></textarea>
+            </label>
+            <div class="actions">
+              <button class="primary compact" id="saveCustomerBtn" type="button">Save Customer</button>
             </div>
           </div>
         </div>
